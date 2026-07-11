@@ -1,5 +1,7 @@
 # Agentic Text-to-SQL — Fireworks AI Field Engineering Take-Home
 
+Deployed link: https://agentic-text-to-sql-44f2.onrender.com 
+
 An agentic text-to-SQL system that converts natural language questions to SQL, executes them against a database, and returns results with a natural-language summary. Built on Fireworks AI open-source models using a tool-calling ReAct architecture with a self-healing SQL correction loop. Available as both an **interactive CLI** and a **web-based BI tool**.
 
 ## Architecture
