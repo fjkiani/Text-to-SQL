@@ -457,6 +457,7 @@ def create_app(db_path: str = None) -> FastAPI:
                 "error": response.error,
                 "cache_hit": False,
                 "chart": _detect_chart_type(response.results, response.columns),
+                "trust": response.trust,
             }
         except Exception as e:
             return {

@@ -10,8 +10,9 @@ from typing import Optional
 from openai import OpenAI
 
 from src.utils import get_ddl_schema, get_sample_rows, execute_sql
-from src.few_shot import build_few_shot_block
+from src.few_shot import build_few_shot_block, FEW_SHOT_EXAMPLES
 from src.dialect import get_dialect_specific_prompt, detect_dialect
+from src.trust import TrustLayer, TrustReport
 
 
 @dataclass
@@ -27,6 +28,7 @@ class AgentResponse:
     success: bool
     error: Optional[str]
     raw_messages: list = field(default_factory=list)
+    trust: Optional[dict] = None  # Trust report with confidence score and flags
 
 
 # Default model — fastest + cheapest on Fireworks serverless
@@ -152,6 +154,9 @@ class TextToSQLAgent:
         # Build system prompt with DDL schema + few-shot examples + dialect rules
         ddl = get_ddl_schema(conn)
         self.system_prompt = _build_system_prompt(ddl, few_shot_enabled=few_shot_enabled, dialect=dialect)
+
+        # Trust layer for validation, confidence scoring, and provenance
+        self.trust_layer = TrustLayer(conn)
 
         # Conversation history (persists across turns for follow-up questions)
         self.messages: list[dict] = [{"role": "system", "content": self.system_prompt}]
@@ -307,6 +312,12 @@ class TextToSQLAgent:
                 self.messages.append({"role": "assistant", "content": summary})
 
                 latency = time.time() - start_time
+
+                # Run trust analysis on the response
+                trust_report = self._analyze_trust(
+                    question, last_sql, last_results, last_columns, summary, attempts
+                )
+
                 return AgentResponse(
                     sql=last_sql,
                     results=last_results,
@@ -317,10 +328,17 @@ class TextToSQLAgent:
                     success=len(last_results) > 0 or attempts > 0,
                     error=last_error,
                     raw_messages=self.messages.copy(),
+                    trust=trust_report,
                 )
 
         # Exhausted retries — return what we have
         latency = time.time() - start_time
+
+        # Run trust analysis even on failure
+        trust_report = self._analyze_trust(
+            question, last_sql, last_results, last_columns, "", attempts
+        )
+
         return AgentResponse(
             sql=last_sql,
             results=last_results,
@@ -331,7 +349,40 @@ class TextToSQLAgent:
             success=len(last_results) > 0,
             error=last_error or "Max retries exceeded without final response",
             raw_messages=self.messages.copy(),
+            trust=trust_report,
         )
+
+    def _analyze_trust(
+        self,
+        question: str,
+        sql: str,
+        results: list,
+        columns: list,
+        summary: str,
+        attempts: int,
+    ) -> dict:
+        """Run trust analysis and return a serializable trust report."""
+        try:
+            report = self.trust_layer.analyze(
+                question=question,
+                sql=sql,
+                results=results,
+                columns=columns,
+                summary=summary,
+                attempts=attempts,
+            )
+            return report.to_dict()
+        except Exception as e:
+            # Trust analysis should never break the query
+            return {
+                "confidence_score": -1,
+                "confidence_label": "error",
+                "flags": [{"severity": "warning", "category": "trust", "message": f"Trust analysis failed: {e}"}],
+                "join_validation": {},
+                "row_count_check": {},
+                "summary_check": {},
+                "provenance": {},
+            }
 
     def reset(self):
         """Clear conversation history (keeps the system prompt)."""

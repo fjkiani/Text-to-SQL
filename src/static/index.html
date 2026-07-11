@@ -781,6 +781,85 @@ body {
 /* ── Cache Hit Badge ── */
 .meta-badge.cache { background: #fff8e1; color: #f57c00; }
 
+/* ── Trust Panel ── */
+.trust-panel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 8px;
+}
+
+.trust-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.trust-score {
+  font-size: 20px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 6px;
+}
+
+.trust-score.high { background: #e8f5e9; color: var(--success); }
+.trust-score.medium { background: #e3f2fd; color: var(--blue); }
+.trust-score.low { background: #fff3e0; color: var(--warning); }
+.trust-score.very_low { background: #fce4ec; color: var(--error); }
+
+.trust-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.trust-section {
+  margin-bottom: 8px;
+}
+
+.trust-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.trust-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.trust-flag-icon {
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.trust-flag.ok .trust-flag-icon { color: var(--success); }
+.trust-flag.warning .trust-flag-icon { color: var(--warning); }
+.trust-flag.critical .trust-flag-icon { color: var(--error); }
+.trust-flag.info .trust-flag-icon { color: var(--blue); }
+
+.trust-flag-message { color: var(--text); }
+.trust-flag-detail { color: var(--text-muted); font-size: 11px; margin-top: 1px; }
+
+.trust-provenance {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  background: #f5f3ed;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
 /* ── Rate Limit Warning ── */
 .rate-limit-warning {
   background: #fff3e0;
@@ -1166,10 +1245,61 @@ function appendAgentResponse(data) {
     ${data.success ? '' : '<span class="meta-badge error">Failed</span>'}
   </div>`;
 
+  // Trust panel
+  if (data.trust && data.trust.confidence_score >= 0) {
+    html += renderTrustPanel(data.trust);
+  }
+
   html += '</div>';
   div.innerHTML = html;
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
+}
+
+function renderTrustPanel(trust) {
+  const score = trust.confidence_score;
+  const label = trust.confidence_label;
+  const labelDisplay = {high: 'High Confidence', medium: 'Medium Confidence', low: 'Low Confidence', very_low: 'Very Low Confidence'}[label] || label;
+
+  let html = `<div class="trust-panel">
+    <div class="trust-header">
+      <span class="trust-score ${label}">${score}/100</span>
+      <span class="trust-label">${labelDisplay}</span>
+    </div>`;
+
+  // Flags
+  if (trust.flags && trust.flags.length > 0) {
+    const icons = {ok: '&#10003;', warning: '&#9888;', critical: '&#10007;', info: '&#8505;'};
+    const critical = trust.flags.filter(f => f.severity === 'critical');
+    const warnings = trust.flags.filter(f => f.severity === 'warning');
+    const oks = trust.flags.filter(f => f.severity === 'ok');
+    const infos = trust.flags.filter(f => f.severity === 'info');
+
+    // Show critical and warnings first, then ok, then info
+    const ordered = [...critical, ...warnings, ...oks, ...infos];
+    for (const flag of ordered) {
+      html += `<div class="trust-flag ${flag.severity}">
+        <span class="trust-flag-icon">${icons[flag.severity] || '&#8226;'}</span>
+        <div>
+          <div class="trust-flag-message">${escapeHtml(flag.message)}</div>
+          ${flag.detail ? `<div class="trust-flag-detail">${escapeHtml(flag.detail)}</div>` : ''}
+        </div>
+      </div>`;
+    }
+  }
+
+  // Provenance
+  if (trust.provenance && trust.provenance.matched_patterns && trust.provenance.matched_patterns.length > 0) {
+    html += `<div class="trust-provenance">
+      <strong>Provenance:</strong> Matches pattern(s): ${trust.provenance.matched_patterns.map(escapeHtml).join(', ')}
+      ${trust.provenance.deviated_from_pattern ? ' &middot; <span style="color:var(--warning);">Deviated from pattern</span>' : ''}
+    </div>`;
+  } else if (trust.provenance && !trust.provenance.matched_patterns) {
+    html += `<div class="trust-provenance"><strong>Provenance:</strong> No matching few-shot pattern (novel query type)</div>`;
+  }
+
+  html += '</div>';
+  return html;
 }
 
 function renderTableHTML(rows, columns) {
