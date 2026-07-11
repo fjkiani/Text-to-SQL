@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: agentic-text-to-sql
+    runtime: python
+    repo: https://github.com/fjkiani/Text-to-SQL
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.web:create_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/models
+    envVars:
+      - key: FIREWORKS_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11"
+    plan: starter
+    region: oregon

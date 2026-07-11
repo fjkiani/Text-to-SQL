@@ -712,6 +712,86 @@ body {
 
 .modal-close:hover { color: var(--text); }
 
+/* ── Result Chart ── */
+.result-chart {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.result-chart-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-bar-label {
+  width: 120px;
+  font-size: 12px;
+  text-align: right;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-bar-track {
+  flex: 1;
+  height: 22px;
+  background: #f0ede5;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.chart-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  transition: width 0.4s ease;
+}
+
+.chart-bar-value {
+  font-size: 12px;
+  font-weight: 600;
+  width: 70px;
+  flex-shrink: 0;
+}
+
+/* ── Cache Hit Badge ── */
+.meta-badge.cache { background: #fff8e1; color: #f57c00; }
+
+/* ── Rate Limit Warning ── */
+.rate-limit-warning {
+  background: #fff3e0;
+  border: 1px solid #ffb74d;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #e65100;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -1060,6 +1140,11 @@ function appendAgentResponse(data) {
     html += `<div class="agent-response-section"><div class="no-results">(no results returned)</div></div>`;
   }
 
+  // Chart visualization (auto-detected for numeric aggregation results)
+  if (data.chart && data.chart.chart_type === 'bar') {
+    html += renderResultChart(data.chart);
+  }
+
   // Error
   if (data.error) {
     html += `<div class="agent-response-section"><div class="error-text">Error: ${escapeHtml(data.error)}</div></div>`;
@@ -1077,6 +1162,7 @@ function appendAgentResponse(data) {
   html += `<div class="response-meta">
     <span class="meta-badge latency">&#9201; ${data.latency}s</span>
     <span class="meta-badge attempts">&#128260; ${data.attempts} attempt(s)</span>
+    ${data.cache_hit ? '<span class="meta-badge cache">&#9889; Cache hit</span>' : ''}
     ${data.success ? '' : '<span class="meta-badge error">Failed</span>'}
   </div>`;
 
@@ -1103,6 +1189,28 @@ function renderTableHTML(rows, columns) {
     html += '</tr>';
   });
   html += '</tbody></table>';
+  return html;
+}
+
+function renderResultChart(chart) {
+  if (!chart || !chart.labels || !chart.values) return '';
+  const maxVal = Math.max(...chart.values);
+  const colors = ['#0279EE', '#75A025', '#FF9400', '#FD9BED', '#E9ED4C', '#8e44ad', '#e74c3c', '#1abc9c'];
+  let html = `<div class="result-chart">
+    <div class="result-chart-title">Visualization: ${escapeHtml(chart.label_col)} vs ${escapeHtml(chart.value_col)}</div>
+    <div class="chart-bars">`;
+  chart.labels.forEach((label, i) => {
+    const val = chart.values[i];
+    const pct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+    const color = colors[i % colors.length];
+    const displayVal = typeof val === 'number' ? val.toLocaleString() : val;
+    html += `<div class="chart-bar-row">
+      <div class="chart-bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+      <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${pct}%;background:${color};">${displayVal}</div></div>
+      <div class="chart-bar-value">${displayVal}</div>
+    </div>`;
+  });
+  html += '</div></div>';
   return html;
 }
 

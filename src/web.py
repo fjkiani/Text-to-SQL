@@ -14,13 +14,15 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.utils import load_db, get_ddl_schema, get_sample_rows, get_schema
 from src.agent import TextToSQLAgent, DEFAULT_MODEL
+from src.cache import SemanticCache
+from src.ratelimit import RateLimiter, UsageTracker
 
 
 # ── Available models ──────────────────────────────────────────────────────────
@@ -160,21 +162,114 @@ class SessionRequest(BaseModel):
     model: Optional[str] = DEFAULT_MODEL
 
 
+# ── Chart detection ───────────────────────────────────────────────────────────
+
+def _detect_chart_type(results: list, columns: list) -> Optional[dict]:
+    """
+    Auto-detect whether query results can be visualized as a chart.
+
+    Detects:
+    - Bar chart: 2 columns where one is categorical (label) and one is numeric (value)
+    - Suitable for aggregation results (e.g., "Genre" + "TotalSales")
+
+    Returns:
+        dict with chart_type, labels, values, label_col, value_col if chartable,
+        None otherwise.
+    """
+    if not results or not columns or len(columns) < 2:
+        return None
+
+    # Need exactly 2 columns for a simple bar chart
+    if len(columns) > 2:
+        return None
+
+    # Need at least 2 rows for a meaningful chart
+    if len(results) < 2:
+        return None
+
+    # Identify which column is categorical (label) and which is numeric (value)
+    col_types = {}
+    for col in columns:
+        values = [r.get(col) for r in results]
+        numeric_count = sum(1 for v in values if isinstance(v, (int, float)))
+        col_types[col] = "numeric" if numeric_count > len(values) * 0.7 else "categorical"
+
+    numeric_cols = [c for c in columns if col_types[c] == "numeric"]
+    categorical_cols = [c for c in columns if col_types[c] == "categorical"]
+
+    # Need exactly 1 numeric and 1 categorical for a bar chart
+    if len(numeric_cols) != 1 or len(categorical_cols) != 1:
+        return None
+
+    label_col = categorical_cols[0]
+    value_col = numeric_cols[0]
+
+    # Build chart data
+    labels = [str(r.get(label_col, "")) for r in results]
+    values = [r.get(value_col, 0) for r in results]
+
+    # Round floats for display
+    values = [round(v, 2) if isinstance(v, float) else v for v in values]
+
+    return {
+        "chart_type": "bar",
+        "label_col": label_col,
+        "value_col": value_col,
+        "labels": labels,
+        "values": values,
+    }
+
+
 # ── App factory ───────────────────────────────────────────────────────────────
 
-def create_app(db_path: str = "data/Chinook.db") -> FastAPI:
+def create_app(db_path: str = None) -> FastAPI:
     """Create and configure the FastAPI application."""
     load_dotenv()
     api_key = os.environ.get("FIREWORKS_API_KEY")
     if not api_key:
         raise RuntimeError("FIREWORKS_API_KEY environment variable is not set")
 
+    # Resolve DB path — check env var, then default locations
+    if db_path is None:
+        db_path = os.environ.get("DB_PATH", "data/Chinook.db")
+
+    # Try multiple DB locations for deployment flexibility
+    db_candidates = [
+        db_path,
+        os.path.join(os.path.dirname(__file__), "..", "data", "Chinook.db"),
+        "/opt/data/Chinook.db",
+        "data/Chinook.db",
+    ]
+    db_found = None
+    for candidate in db_candidates:
+        if os.path.exists(candidate):
+            db_found = os.path.abspath(candidate)
+            break
+
+    if not db_found:
+        # If no DB exists, download it via setup.sh
+        import subprocess
+        setup_script = os.path.join(os.path.dirname(__file__), "..", "setup.sh")
+        if os.path.exists(setup_script):
+            print(f"Database not found, running setup.sh...")
+            subprocess.run(["bash", setup_script], check=True)
+            db_found = os.path.abspath("data/Chinook.db")
+        else:
+            raise RuntimeError(f"Database not found at any of: {db_candidates}")
+
+    print(f"Using database: {db_found}")
+
     # Load database with thread-safe connection
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn = sqlite3.connect(db_found, check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.row_factory = sqlite3.Row
 
     session_manager = SessionManager(conn, api_key)
+
+    # Production features: semantic cache, rate limiter, usage tracker
+    cache = SemanticCache(ttl_seconds=3600, similarity_threshold=0.85)
+    rate_limiter = RateLimiter(requests_per_minute=30, requests_per_hour=500)
+    usage_tracker = UsageTracker()
 
     # Paths
     base_dir = Path(__file__).parent
@@ -188,6 +283,11 @@ def create_app(db_path: str = "data/Chinook.db") -> FastAPI:
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     # ── Routes ─────────────────────────────────────────────────────────────
+
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint for Render and monitoring."""
+        return {"status": "ok", "service": "agentic-text-to-sql"}
 
     @app.get("/", response_class=HTMLResponse)
     async def index():
@@ -267,8 +367,42 @@ def create_app(db_path: str = "data/Chinook.db") -> FastAPI:
         return {"history": display_history}
 
     @app.post("/api/query")
-    async def query(req: QueryRequest):
+    async def query(req: QueryRequest, request: Request):
         """Process a natural language question through the agent."""
+        # Rate limiting — use client IP + session_id as the key
+        client_ip = request.client.host if request.client else "unknown"
+        rate_key = f"{client_ip}:{req.session_id or 'no-session'}"
+        allowed, rate_info = rate_limiter.check(rate_key)
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded: {rate_info.requests_this_minute}/{rate_info.limit_per_minute} per minute. Retry in {rate_info.retry_after}s.",
+                headers={"Retry-After": str(rate_info.retry_after)},
+            )
+
+        # Semantic cache check — return cached response in <1ms if available
+        cached = cache.get(req.question)
+        if cached and cached.success:
+            usage_tracker.record_query(
+                session_id=req.session_id or "cached",
+                model=req.model or DEFAULT_MODEL,
+                latency=0.001,  # cache hit latency
+                cache_hit=True,
+                question=req.question,
+            )
+            return {
+                "session_id": req.session_id or "",
+                "sql": cached.sql,
+                "results": cached.results,
+                "columns": cached.columns,
+                "summary": cached.summary,
+                "latency": 0.001,
+                "attempts": cached.attempts,
+                "success": cached.success,
+                "error": cached.error,
+                "cache_hit": True,
+            }
+
         # Get or create session
         model = req.model or DEFAULT_MODEL
         session_id = session_manager.get_or_create_session(req.session_id, model)
@@ -288,6 +422,29 @@ def create_app(db_path: str = "data/Chinook.db") -> FastAPI:
         # Run the query
         try:
             response = agent.ask(req.question)
+
+            # Cache the response for future queries
+            cache.put(
+                question=req.question,
+                sql=response.sql,
+                results=response.results,
+                columns=response.columns,
+                summary=response.summary,
+                latency=response.latency,
+                attempts=response.attempts,
+                success=response.success,
+                error=response.error,
+            )
+
+            # Track usage
+            usage_tracker.record_query(
+                session_id=session_id,
+                model=model,
+                latency=response.latency,
+                cache_hit=False,
+                question=req.question,
+            )
+
             return {
                 "session_id": session_id,
                 "sql": response.sql,
@@ -298,6 +455,8 @@ def create_app(db_path: str = "data/Chinook.db") -> FastAPI:
                 "attempts": response.attempts,
                 "success": response.success,
                 "error": response.error,
+                "cache_hit": False,
+                "chart": _detect_chart_type(response.results, response.columns),
             }
         except Exception as e:
             return {
@@ -310,6 +469,8 @@ def create_app(db_path: str = "data/Chinook.db") -> FastAPI:
                 "attempts": 0,
                 "success": False,
                 "error": str(e),
+                "cache_hit": False,
+                "chart": None,
             }
 
     @app.get("/api/benchmark")
@@ -328,6 +489,29 @@ def create_app(db_path: str = "data/Chinook.db") -> FastAPI:
             return json.loads(eval_path.read_text())
         return {"error": "No eval results found. Run: python -m src.eval"}
 
+    @app.get("/api/cache/metrics")
+    async def cache_metrics():
+        """Return semantic cache performance metrics."""
+        return cache.get_metrics()
+
+    @app.get("/api/usage")
+    async def global_usage():
+        """Return global usage metrics across all sessions."""
+        return usage_tracker.get_global_usage()
+
+    @app.get("/api/usage/{session_id}")
+    async def session_usage(session_id: str):
+        """Return usage metrics for a specific session."""
+        usage = usage_tracker.get_session_usage(session_id)
+        if usage is None:
+            raise HTTPException(status_code=404, detail="Session usage not found")
+        return usage
+
+    @app.get("/api/rate-limit/{client_id}")
+    async def rate_limit_status(client_id: str):
+        """Return current rate limit status for a client."""
+        return rate_limiter.get_status(client_id)
+
     return app
 
 
@@ -340,9 +524,12 @@ def main():
 
     parser = argparse.ArgumentParser(description="Agentic Text-to-SQL Web UI")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind (default: 0.0.0.0)")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
+    parser.add_argument("--port", type=int, default=None, help="Port to bind (default: 8000 or $PORT)")
     parser.add_argument("--db", default="data/Chinook.db", help="Database path")
     args = parser.parse_args()
+
+    # Use $PORT env var (set by Render and other cloud platforms) or fall back to 8000
+    port = args.port or int(os.environ.get("PORT", 8000))
 
     load_dotenv()
     if not os.environ.get("FIREWORKS_API_KEY"):
@@ -353,8 +540,8 @@ def main():
 
     app = create_app(db_path=args.db)
     print(f"\n  Agentic Text-to-SQL Web UI")
-    print(f"  Open http://localhost:{args.port} in your browser\n")
-    uvicorn.run(app, host=args.host, port=args.port)
+    print(f"  Open http://localhost:{port} in your browser\n")
+    uvicorn.run(app, host=args.host, port=port)
 
 
 if __name__ == "__main__":

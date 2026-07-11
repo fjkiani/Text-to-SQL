@@ -10,6 +10,8 @@ from typing import Optional
 from openai import OpenAI
 
 from src.utils import get_ddl_schema, get_sample_rows, execute_sql
+from src.few_shot import build_few_shot_block
+from src.dialect import get_dialect_specific_prompt, detect_dialect
 
 
 @dataclass
@@ -75,15 +77,21 @@ TOOLS = [
 ]
 
 
-def _build_system_prompt(ddl_schema: str) -> str:
-    """Build the system prompt with injected DDL schema and SQL generation rules."""
-    return f"""You are a text-to-SQL agent. You have access to a SQLite database with this schema:
+def _build_system_prompt(ddl_schema: str, few_shot_enabled: bool = True, dialect: str = "sqlite") -> str:
+    """Build the system prompt with injected DDL schema, few-shot examples, and dialect-specific SQL rules."""
+    few_shot_block = build_few_shot_block(max_examples=5) if few_shot_enabled else ""
+    dialect_rules = get_dialect_specific_prompt(dialect)
+    return f"""You are a text-to-SQL agent. You have access to a {dialect.upper()} database with this schema:
 
 {ddl_schema}
 
 Use the run_sql tool to execute SQL queries. Use get_sample_rows to inspect data when the schema is ambiguous.
 
-## SQL Generation Rules
+{few_shot_block}
+
+{dialect_rules}
+
+## General SQL Generation Rules
 1. Select only the columns the user asks for — do not add extra columns like IDs unless explicitly requested.
 2. Use clear, descriptive column aliases (e.g., "TotalSales", "CustomerCount", "GenreName").
 3. When the user asks for "names" of people, combine FirstName and LastName into a single column (e.g., "FirstName || ' ' || LastName AS Name").
@@ -124,12 +132,16 @@ class TextToSQLAgent:
         max_retries: int = 3,
         temperature: float = 0.0,
         max_tokens: int = 2000,
+        few_shot_enabled: bool = True,
+        dialect: str = "sqlite",
     ):
         self.conn = conn
         self.model = model
         self.max_retries = max_retries
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.few_shot_enabled = few_shot_enabled
+        self.dialect = dialect
 
         # Initialize OpenAI-compatible client for Fireworks
         self.client = OpenAI(
@@ -137,9 +149,9 @@ class TextToSQLAgent:
             base_url=base_url,
         )
 
-        # Build system prompt with DDL schema
+        # Build system prompt with DDL schema + few-shot examples + dialect rules
         ddl = get_ddl_schema(conn)
-        self.system_prompt = _build_system_prompt(ddl)
+        self.system_prompt = _build_system_prompt(ddl, few_shot_enabled=few_shot_enabled, dialect=dialect)
 
         # Conversation history (persists across turns for follow-up questions)
         self.messages: list[dict] = [{"role": "system", "content": self.system_prompt}]
