@@ -536,19 +536,27 @@ def create_app(db_path: str = None) -> FastAPI:
         Blocks up to ~2 minutes; runs all 10 dev questions."""
         try:
             from src.eval import run_eval
-            report = run_eval(
+            # run_eval writes eval_report.json and dev_answers.json but does not return.
+            run_eval(
                 db_path=str(db_path),
                 model=DEFAULT_MODEL,
                 answers_output="dev_answers.json",
                 report_output="eval_report.json",
             )
+            # Read the freshly-written report so the client can see the numbers.
+            eval_path = Path("eval_report.json")
+            if not eval_path.exists():
+                return {"success": False, "error": "run_eval completed but eval_report.json was not written"}
+            report = json.loads(eval_path.read_text())
             return {
                 "success": True,
-                "summary": report["summary"],
+                "summary": report.get("summary"),
+                "run_at": report.get("run_at"),
                 "generated_at": datetime.now(timezone.utc).isoformat(),
             }
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            import traceback
+            return {"success": False, "error": f"{type(e).__name__}: {e}", "traceback": traceback.format_exc()[-500:]}
 
     @app.get("/api/cache/metrics")
     async def cache_metrics():
