@@ -1,0 +1,526 @@
+{
+  "gpt-oss-120b": {
+    "model_id": "accounts/fireworks/models/gpt-oss-120b",
+    "questions": [
+      {
+        "question_id": "q_001",
+        "question": "What are the top 5 best-selling genres by total sales?",
+        "tier": 1,
+        "generated_sql": "SELECT g.Name AS Genre, ROUND(SUM(il.UnitPrice * il.Quantity), 2) AS TotalSales\nFROM InvoiceLine il\nJOIN Track t ON il.TrackId = t.TrackId\nJOIN Genre g ON t.GenreId = g.GenreId\nGROUP BY g.GenreId, g.Name\nORDER BY TotalSales DESC\nLIMIT 5;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.041,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_002",
+        "question": "List all albums by the artist 'AC/DC'.",
+        "tier": 1,
+        "generated_sql": "SELECT Album.Title AS AlbumTitle\nFROM Album\nJOIN Artist ON Album.ArtistId = Artist.ArtistId\nWHERE Artist.Name = 'AC/DC'\nORDER BY Album.Title;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 1.272,
+        "attempts": 1,
+        "error": null,
+        "result_count": 2
+      },
+      {
+        "question_id": "q_003",
+        "question": "What are the names and email addresses of customers from Brazil?",
+        "tier": 1,
+        "generated_sql": "SELECT FirstName || ' ' || LastName AS Name, Email FROM Customer WHERE Country = 'Brazil';",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 1.493,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_004",
+        "question": "What is the most popular media type based on number of tracks?",
+        "tier": 1,
+        "generated_sql": "SELECT mt.Name AS MediaType, COUNT(t.TrackId) AS TrackCount\nFROM Track t\nJOIN MediaType mt ON t.MediaTypeId = mt.MediaTypeId\nGROUP BY mt.MediaTypeId, mt.Name\nORDER BY TrackCount DESC\nLIMIT 1;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.004,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_005",
+        "question": "Which employee has the most customers assigned to them?",
+        "tier": 2,
+        "generated_sql": "SELECT e.FirstName || ' ' || e.LastName AS EmployeeName,\n       COUNT(c.CustomerId) AS CustomerCount\nFROM Employee e\nJOIN Customer c ON c.SupportRepId = e.EmployeeId\nGROUP BY e.EmployeeId\nORDER BY CustomerCount DESC\nLIMIT 1;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 1.367,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_006",
+        "question": "How many tracks are there in each playlist?",
+        "tier": 2,
+        "generated_sql": "SELECT p.Name AS PlaylistName, COUNT(pt.TrackId) AS TrackCount\nFROM Playlist p\nLEFT JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId\nGROUP BY p.PlaylistId, p.Name\nORDER BY p.Name;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.969,
+        "attempts": 1,
+        "error": null,
+        "result_count": 18
+      },
+      {
+        "question_id": "q_007",
+        "question": "What is the total revenue generated in the year 2021?",
+        "tier": 2,
+        "generated_sql": "SELECT ROUND(SUM(Total), 2) AS TotalRevenue2021\nFROM Invoice\nWHERE strftime('%Y', InvoiceDate) = '2021';",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 0.836,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_008",
+        "question": "What is the average invoice total for each billing country, ordered from highest to lowest?",
+        "tier": 2,
+        "generated_sql": "SELECT BillingCountry,\n       ROUND(AVG(Total), 2) AS AverageTotal\nFROM Invoice\nGROUP BY BillingCountry\nORDER BY AverageTotal DESC;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.254,
+        "attempts": 1,
+        "error": null,
+        "result_count": 24
+      },
+      {
+        "question_id": "q_009",
+        "question": "For each customer, what is their total spending and how does it rank compared to other customers? Show the top 5 customers by spending.",
+        "tier": 3,
+        "generated_sql": "WITH CustomerSpending AS (\n    SELECT\n        c.CustomerId,\n        c.FirstName || ' ' || c.LastName AS CustomerName,\n        ROUND(SUM(i.Total), 2) AS TotalSpending\n    FROM Customer c\n    JOIN Invoice i ON c.CustomerId = i.CustomerId\n    GROUP BY c.CustomerId\n)\nSELECT\n    CustomerName,\n    TotalSpending,\n    RANK() OVER (ORDER BY TotalSpending DESC) AS Rank\nFROM CustomerSpending\nORDER BY TotalSpending DESC\nLIMIT 5;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 4.324,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_010",
+        "question": "Which artists have tracks in more than 3 different genres? List the artist name and the number of distinct genres.",
+        "tier": 3,
+        "generated_sql": "SELECT a.Name AS ArtistName, COUNT(DISTINCT t.GenreId) AS GenreCount\nFROM Artist a\nJOIN Album al ON al.ArtistId = a.ArtistId\nJOIN Track t ON t.AlbumId = al.AlbumId\nWHERE t.GenreId IS NOT NULL\nGROUP BY a.ArtistId, a.Name\nHAVING COUNT(DISTINCT t.GenreId) > 3\nORDER BY GenreCount DESC;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 1.768,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      }
+    ],
+    "summary": {
+      "exec_success": "10/10",
+      "data_match": "9/10",
+      "avg_latency": 2.233,
+      "p50_latency": 2.004
+    }
+  },
+  "deepseek-v4-flash": {
+    "model_id": "accounts/fireworks/models/deepseek-v4-flash",
+    "questions": [
+      {
+        "question_id": "q_001",
+        "question": "What are the top 5 best-selling genres by total sales?",
+        "tier": 1,
+        "generated_sql": "SELECT \n    g.Name AS GenreName,\n    ROUND(SUM(il.UnitPrice * il.Quantity), 2) AS TotalSales\nFROM Genre g\nJOIN Track t ON g.GenreId = t.GenreId\nJOIN InvoiceLine il ON t.TrackId = il.TrackId\nGROUP BY g.GenreId, g.Name\nORDER BY TotalSales DESC\nLIMIT 5;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 4.661,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_002",
+        "question": "List all albums by the artist 'AC/DC'.",
+        "tier": 1,
+        "generated_sql": "SELECT a.Title AS AlbumTitle\nFROM Album a\nJOIN Artist ar ON a.ArtistId = ar.ArtistId\nWHERE ar.Name = 'AC/DC'\nORDER BY a.Title;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.515,
+        "attempts": 1,
+        "error": null,
+        "result_count": 2
+      },
+      {
+        "question_id": "q_003",
+        "question": "What are the names and email addresses of customers from Brazil?",
+        "tier": 1,
+        "generated_sql": "SELECT FirstName || ' ' || LastName AS Name, Email FROM Customer WHERE Country = 'Brazil'",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 6.925,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_004",
+        "question": "What is the most popular media type based on number of tracks?",
+        "tier": 1,
+        "generated_sql": "SELECT mt.Name AS MediaType, COUNT(t.TrackId) AS TrackCount\nFROM MediaType mt\nLEFT JOIN Track t ON mt.MediaTypeId = t.MediaTypeId\nGROUP BY mt.MediaTypeId, mt.Name\nORDER BY TrackCount DESC\nLIMIT 1;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 1.883,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_005",
+        "question": "Which employee has the most customers assigned to them?",
+        "tier": 2,
+        "generated_sql": "SELECT \n    e.FirstName || ' ' || e.LastName AS Name,\n    COUNT(c.CustomerId) AS CustomerCount\nFROM Employee e\nLEFT JOIN Customer c ON e.EmployeeId = c.SupportRepId\nGROUP BY e.EmployeeId\nORDER BY CustomerCount DESC\nLIMIT 1;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 6.916,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_006",
+        "question": "How many tracks are there in each playlist?",
+        "tier": 2,
+        "generated_sql": "SELECT p.Name AS PlaylistName, COUNT(pt.TrackId) AS TrackCount\nFROM Playlist p\nLEFT JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId\nGROUP BY p.Name\nORDER BY TrackCount DESC",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 10.098,
+        "attempts": 3,
+        "error": null,
+        "result_count": 14
+      },
+      {
+        "question_id": "q_007",
+        "question": "What is the total revenue generated in the year 2021?",
+        "tier": 2,
+        "generated_sql": "SELECT ROUND(SUM(Total), 2) AS TotalRevenue2021\nFROM Invoice\nWHERE strftime('%Y', InvoiceDate) = '2021';",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.917,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_008",
+        "question": "What is the average invoice total for each billing country, ordered from highest to lowest?",
+        "tier": 2,
+        "generated_sql": "SELECT BillingCountry, ROUND(AVG(Total), 2) AS AverageInvoiceTotal\nFROM Invoice\nGROUP BY BillingCountry\nORDER BY AverageInvoiceTotal DESC",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.332,
+        "attempts": 1,
+        "error": null,
+        "result_count": 24
+      },
+      {
+        "question_id": "q_009",
+        "question": "For each customer, what is their total spending and how does it rank compared to other customers? Show the top 5 customers by spending.",
+        "tier": 3,
+        "generated_sql": "SELECT \n    c.FirstName || ' ' || c.LastName AS CustomerName,\n    ROUND(SUM(i.Total), 2) AS TotalSpending,\n    RANK() OVER (ORDER BY SUM(i.Total) DESC) AS SpendingRank\nFROM Customer c\nJOIN Invoice i ON c.CustomerId = i.CustomerId\nGROUP BY c.CustomerId\nORDER BY TotalSpending DESC\nLIMIT 5",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 4.016,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_010",
+        "question": "Which artists have tracks in more than 3 different genres? List the artist name and the number of distinct genres.",
+        "tier": 3,
+        "generated_sql": "SELECT DISTINCT g.Name AS GenreName\nFROM Artist ar\nJOIN Album al ON ar.ArtistId = al.ArtistId\nJOIN Track t ON al.AlbumId = t.AlbumId\nJOIN Genre g ON t.GenreId = g.GenreId\nWHERE ar.Name = 'Iron Maiden'\nORDER BY g.Name;",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 4.977,
+        "attempts": 2,
+        "error": null,
+        "result_count": 4
+      }
+    ],
+    "summary": {
+      "exec_success": "10/10",
+      "data_match": "7/10",
+      "avg_latency": 4.924,
+      "p50_latency": 4.661
+    }
+  },
+  "glm-5p2": {
+    "model_id": "accounts/fireworks/models/glm-5p2",
+    "questions": [
+      {
+        "question_id": "q_001",
+        "question": "What are the top 5 best-selling genres by total sales?",
+        "tier": 1,
+        "generated_sql": "\nSELECT g.Name AS GenreName, ROUND(SUM(il.UnitPrice * il.Quantity), 2) AS TotalSales\nFROM Genre g\nJOIN Track t ON g.GenreId = t.GenreId\nJOIN InvoiceLine il ON t.TrackId = il.TrackId\nGROUP BY g.GenreId, g.Name\nORDER BY TotalSales DESC\nLIMIT 5;\n",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.927,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_002",
+        "question": "List all albums by the artist 'AC/DC'.",
+        "tier": 1,
+        "generated_sql": "\nSELECT a.Title AS AlbumTitle\nFROM Album a\nJOIN Artist ar ON a.ArtistId = ar.ArtistId\nWHERE ar.Name = 'AC/DC'\nORDER BY a.Title;\n",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.124,
+        "attempts": 1,
+        "error": null,
+        "result_count": 2
+      },
+      {
+        "question_id": "q_003",
+        "question": "What are the names and email addresses of customers from Brazil?",
+        "tier": 1,
+        "generated_sql": "SELECT FirstName || ' ' || LastName AS Name, Email FROM Customer WHERE Country = 'Brazil';",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 2.153,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_004",
+        "question": "What is the most popular media type based on number of tracks?",
+        "tier": 1,
+        "generated_sql": "SELECT mt.Name AS MediaType, COUNT(t.TrackId) AS TrackCount\nFROM MediaType mt\nJOIN Track t ON mt.MediaTypeId = t.MediaTypeId\nGROUP BY mt.MediaTypeId, mt.Name\nORDER BY TrackCount DESC\nLIMIT 1;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.535,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_005",
+        "question": "Which employee has the most customers assigned to them?",
+        "tier": 2,
+        "generated_sql": "SELECT e.FirstName || ' ' || e.LastName AS EmployeeName, COUNT(c.CustomerId) AS CustomerCount FROM Employee e LEFT JOIN Customer c ON e.EmployeeId = c.SupportRepId GROUP BY e.EmployeeId ORDER BY CustomerCount DESC LIMIT 1;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.971,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_006",
+        "question": "How many tracks are there in each playlist?",
+        "tier": 2,
+        "generated_sql": "\nSELECT p.PlaylistId, p.Name AS PlaylistName, COUNT(pt.TrackId) AS TrackCount\nFROM Playlist p\nLEFT JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId\nGROUP BY p.PlaylistId, p.Name\nORDER BY TrackCount DESC, p.Name;\n",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 5.131,
+        "attempts": 2,
+        "error": null,
+        "result_count": 18
+      },
+      {
+        "question_id": "q_007",
+        "question": "What is the total revenue generated in the year 2021?",
+        "tier": 2,
+        "generated_sql": "SELECT ROUND(SUM(Total), 2) AS TotalRevenue FROM Invoice WHERE strftime('%Y', InvoiceDate) = '2021';",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.921,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_008",
+        "question": "What is the average invoice total for each billing country, ordered from highest to lowest?",
+        "tier": 2,
+        "generated_sql": "SELECT BillingCountry, ROUND(AVG(Total), 2) AS AverageInvoiceTotal\nFROM Invoice\nGROUP BY BillingCountry\nORDER BY AverageInvoiceTotal DESC;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 5.794,
+        "attempts": 1,
+        "error": null,
+        "result_count": 24
+      },
+      {
+        "question_id": "q_009",
+        "question": "For each customer, what is their total spending and how does it rank compared to other customers? Show the top 5 customers by spending.",
+        "tier": 3,
+        "generated_sql": "\nSELECT \n    c.FirstName || ' ' || c.LastName AS CustomerName,\n    ROUND(SUM(i.Total), 2) AS TotalSpending,\n    RANK() OVER (ORDER BY SUM(i.Total) DESC) AS SpendingRank\nFROM Customer c\nJOIN Invoice i ON c.CustomerId = i.CustomerId\nGROUP BY c.CustomerId, c.FirstName, c.LastName\nORDER BY TotalSpending DESC\nLIMIT 5;\n",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 5.253,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_010",
+        "question": "Which artists have tracks in more than 3 different genres? List the artist name and the number of distinct genres.",
+        "tier": 3,
+        "generated_sql": "\nSELECT a.Name AS ArtistName, COUNT(DISTINCT t.GenreId) AS DistinctGenreCount\nFROM Artist a\nJOIN Album al ON a.ArtistId = al.ArtistId\nJOIN Track t ON al.AlbumId = t.AlbumId\nWHERE t.GenreId IS NOT NULL\nGROUP BY a.ArtistId, a.Name\nHAVING COUNT(DISTINCT t.GenreId) > 3\nORDER BY DistinctGenreCount DESC\n",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.563,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      }
+    ],
+    "summary": {
+      "exec_success": "10/10",
+      "data_match": "8/10",
+      "avg_latency": 3.737,
+      "p50_latency": 3.921
+    }
+  },
+  "kimi-k2p6": {
+    "model_id": "accounts/fireworks/models/kimi-k2p6",
+    "questions": [
+      {
+        "question_id": "q_001",
+        "question": "What are the top 5 best-selling genres by total sales?",
+        "tier": 1,
+        "generated_sql": "SELECT \n    g.Name AS GenreName,\n    ROUND(SUM(il.UnitPrice * il.Quantity), 2) AS TotalSales\nFROM Genre g\nJOIN Track t ON g.GenreId = t.GenreId\nJOIN InvoiceLine il ON t.TrackId = il.TrackId\nGROUP BY g.GenreId, g.Name\nORDER BY TotalSales DESC\nLIMIT 5",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 4.894,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_002",
+        "question": "List all albums by the artist 'AC/DC'.",
+        "tier": 1,
+        "generated_sql": "SELECT a.Title AS AlbumName FROM Album a JOIN Artist ar ON a.ArtistId = ar.ArtistId WHERE ar.Name = 'AC/DC'",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.728,
+        "attempts": 1,
+        "error": null,
+        "result_count": 2
+      },
+      {
+        "question_id": "q_003",
+        "question": "What are the names and email addresses of customers from Brazil?",
+        "tier": 1,
+        "generated_sql": "SELECT FirstName || ' ' || LastName AS Name, Email AS EmailAddress FROM Customer WHERE Country = 'Brazil'",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 3.25,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_004",
+        "question": "What is the most popular media type based on number of tracks?",
+        "tier": 1,
+        "generated_sql": "SELECT mt.Name AS MediaTypeName, COUNT(t.TrackId) AS TrackCount\nFROM MediaType mt\nJOIN Track t ON mt.MediaTypeId = t.MediaTypeId\nGROUP BY mt.MediaTypeId, mt.Name\nORDER BY TrackCount DESC\nLIMIT 1",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.078,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_005",
+        "question": "Which employee has the most customers assigned to them?",
+        "tier": 2,
+        "generated_sql": "SELECT e.FirstName || ' ' || e.LastName AS EmployeeName, COUNT(c.CustomerId) AS CustomerCount FROM Employee e JOIN Customer c ON e.EmployeeId = c.SupportRepId GROUP BY e.EmployeeId ORDER BY CustomerCount DESC LIMIT 1",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.044,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_006",
+        "question": "How many tracks are there in each playlist?",
+        "tier": 2,
+        "generated_sql": "SELECT p.PlaylistId, p.Name AS PlaylistName, COUNT(pt.TrackId) AS TrackCount FROM Playlist p LEFT JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId GROUP BY p.PlaylistId, p.Name ORDER BY TrackCount DESC, p.Name",
+        "exec_success": true,
+        "data_match": false,
+        "latency": 6.256,
+        "attempts": 3,
+        "error": null,
+        "result_count": 18
+      },
+      {
+        "question_id": "q_007",
+        "question": "What is the total revenue generated in the year 2021?",
+        "tier": 2,
+        "generated_sql": "SELECT ROUND(SUM(Total), 2) AS TotalRevenue FROM Invoice WHERE strftime('%Y', InvoiceDate) = '2021'",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.102,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      },
+      {
+        "question_id": "q_008",
+        "question": "What is the average invoice total for each billing country, ordered from highest to lowest?",
+        "tier": 2,
+        "generated_sql": "SELECT BillingCountry, ROUND(AVG(Total), 2) AS AverageInvoiceTotal FROM Invoice GROUP BY BillingCountry ORDER BY AverageInvoiceTotal DESC",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 2.222,
+        "attempts": 1,
+        "error": null,
+        "result_count": 24
+      },
+      {
+        "question_id": "q_009",
+        "question": "For each customer, what is their total spending and how does it rank compared to other customers? Show the top 5 customers by spending.",
+        "tier": 3,
+        "generated_sql": "SELECT \n    c.FirstName || ' ' || c.LastName AS CustomerName,\n    ROUND(SUM(i.Total), 2) AS TotalSpending,\n    RANK() OVER (ORDER BY SUM(i.Total) DESC) AS SpendingRank\nFROM Customer c\nJOIN Invoice i ON c.CustomerId = i.CustomerId\nGROUP BY c.CustomerId, c.FirstName, c.LastName\nORDER BY TotalSpending DESC\nLIMIT 5;",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 6.104,
+        "attempts": 1,
+        "error": null,
+        "result_count": 5
+      },
+      {
+        "question_id": "q_010",
+        "question": "Which artists have tracks in more than 3 different genres? List the artist name and the number of distinct genres.",
+        "tier": 3,
+        "generated_sql": "SELECT \n    ar.Name AS ArtistName,\n    COUNT(DISTINCT t.GenreId) AS GenreCount\nFROM Artist ar\nJOIN Album al ON ar.ArtistId = al.ArtistId\nJOIN Track t ON al.AlbumId = t.AlbumId\nGROUP BY ar.ArtistId, ar.Name\nHAVING COUNT(DISTINCT t.GenreId) > 3\nORDER BY GenreCount DESC",
+        "exec_success": true,
+        "data_match": true,
+        "latency": 3.572,
+        "attempts": 1,
+        "error": null,
+        "result_count": 1
+      }
+    ],
+    "summary": {
+      "exec_success": "10/10",
+      "data_match": "8/10",
+      "avg_latency": 3.525,
+      "p50_latency": 3.25
+    }
+  }
+}

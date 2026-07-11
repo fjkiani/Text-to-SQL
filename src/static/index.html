@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic Text-to-SQL</title>
+<style>
+/* ── Phylo Color Palette ── */
+:root {
+  --black: #000000;
+  --cream: #ECE9E2;
+  --light-cream: #FAF9F3;
+  --yellow: #E9ED4C;
+  --orange: #FF9400;
+  --green: #75A025;
+  --pink: #FD9BED;
+  --blue: #0279EE;
+  --sidebar-bg: #1a1a2e;
+  --sidebar-hover: #16213e;
+  --main-bg: #FAF9F3;
+  --card-bg: #ffffff;
+  --border: #e0ddd5;
+  --text: #1a1a2e;
+  --text-muted: #6b6b7e;
+  --success: #75A025;
+  --warning: #FF9400;
+  --error: #e74c3c;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--main-bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Layout ── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 56px;
+  background: var(--sidebar-bg);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-logo {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.header-logo span { color: var(--yellow); }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.model-selector select {
+  background: var(--sidebar-hover);
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+}
+
+.model-selector select:hover { border-color: var(--blue); }
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 280px;
+  background: var(--sidebar-bg);
+  color: #ccc;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  padding: 16px;
+  border-bottom: 1px solid #2a2a4a;
+}
+
+.sidebar-section h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #888;
+  margin-bottom: 10px;
+}
+
+.schema-table {
+  margin-bottom: 4px;
+}
+
+.schema-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.schema-table-header:hover { background: var(--sidebar-hover); }
+
+.schema-table-header .table-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schema-table-header .chevron {
+  font-size: 10px;
+  transition: transform 0.2s;
+}
+
+.schema-table-header.expanded .chevron { transform: rotate(90deg); }
+
+.schema-columns {
+  display: none;
+  padding: 4px 10px 8px 26px;
+}
+
+.schema-columns.show { display: block; }
+
+.schema-col {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.schema-col .col-name { color: #ddd; }
+.schema-col .col-type { color: #777; font-size: 11px; }
+.schema-col .pk-badge {
+  font-size: 9px;
+  background: var(--orange);
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.sample-btn {
+  font-size: 11px;
+  color: var(--blue);
+  cursor: pointer;
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.sample-btn:hover { background: rgba(2,121,238,0.15); }
+
+.session-info {
+  font-size: 12px;
+  color: #888;
+}
+
+.session-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--yellow);
+  word-break: break-all;
+  margin: 4px 0;
+}
+
+.sidebar-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--sidebar-hover);
+  color: #ccc;
+  border: 1px solid #333;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: all 0.15s;
+  text-align: left;
+}
+
+.sidebar-btn:hover {
+  background: var(--blue);
+  color: #fff;
+  border-color: var(--blue);
+}
+
+/* ── Main Panel ── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tab-bar {
+  display: flex;
+  border-bottom: 2px solid var(--border);
+  background: var(--card-bg);
+  flex-shrink: 0;
+}
+
+.tab {
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  transition: all 0.15s;
+}
+
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: none;
+}
+
+.tab-content.active { display: block; }
+
+/* ── Chat Tab ── */
+.chat-container {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0;
+}
+
+.chat-message {
+  margin-bottom: 20px;
+}
+
+.message-role {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.message-user .message-role { color: var(--blue); }
+.message-agent .message-role { color: var(--green); }
+
+.message-bubble {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.message-user .message-bubble {
+  background: #eef4fc;
+  border-color: #c5dcf7;
+}
+
+.agent-response-section {
+  margin-bottom: 12px;
+}
+
+.agent-response-section:last-child { margin-bottom: 0; }
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sql-block {
+  background: #1e1e2e;
+  color: #e0e0e0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.results-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.results-table th {
+  background: #f5f3ed;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+
+.results-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.results-table tr:last-child td { border-bottom: none; }
+.results-table tr:hover td { background: #faf8f2; }
+
+.summary-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.response-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.meta-badge.latency { background: #e8f0fe; color: var(--blue); }
+.meta-badge.attempts { background: #e8f5e9; color: var(--success); }
+.meta-badge.error { background: #fce4ec; color: var(--error); }
+
+.error-text { color: var(--error); font-size: 13px; }
+
+.no-results { color: var(--text-muted); font-style: italic; }
+
+/* ── Chat Input ── */
+.chat-input-area {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color 0.15s;
+  resize: none;
+  min-height: 44px;
+  max-height: 120px;
+}
+
+.chat-input:focus { border-color: var(--blue); }
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #0160c0; }
+.btn-primary:disabled { background: #999; cursor: not-allowed; }
+
+.btn-secondary { background: var(--cream); color: var(--text); }
+.btn-secondary:hover { background: #ddd9d0; }
+
+.chat-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* ── Loading Spinner ── */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 14px 18px;
+}
+
+/* ── Benchmark Tab ── */
+.benchmark-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.benchmark-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin-bottom: 24px;
+}
+
+.benchmark-table th {
+  background: var(--sidebar-bg);
+  color: #fff;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.benchmark-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.benchmark-table tr:last-child td { border-bottom: none; }
+.benchmark-table tr:hover td { background: #faf8f2; }
+
+.chart-container {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.chart-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bar-label {
+  width: 140px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.bar-track {
+  flex: 1;
+  height: 28px;
+  background: #f0ede5;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  transition: width 0.5s ease;
+}
+
+.bar-value {
+  font-size: 13px;
+  font-weight: 600;
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.target-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--error);
+  z-index: 1;
+}
+
+.target-label {
+  position: absolute;
+  top: -18px;
+  font-size: 10px;
+  color: var(--error);
+  transform: translateX(-50%);
+}
+
+/* ── Eval Tab ── */
+.eval-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.eval-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.eval-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+}
+
+.eval-card .card-value {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.eval-card .card-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.eval-card.green .card-value { color: var(--success); }
+.eval-card.blue .card-value { color: var(--blue); }
+.eval-card.orange .card-value { color: var(--orange); }
+.eval-card.purple .card-value { color: #8e44ad; }
+
+.eval-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.eval-table th {
+  background: var(--sidebar-bg);
+  color: #fff;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.eval-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.eval-table tr:last-child td { border-bottom: none; }
+
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-pill.match { background: #e8f5e9; color: var(--success); }
+.status-pill.exec { background: #fff3e0; color: var(--warning); }
+.status-pill.fail { background: #fce4ec; color: var(--error); }
+
+/* ── Sample Rows Modal ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-overlay.show { display: flex; }
+
+.modal {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.modal-close {
+  float: right;
+  cursor: pointer;
+  font-size: 20px;
+  color: var(--text-muted);
+}
+
+.modal-close:hover { color: var(--text); }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c0bdb5; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+
+.sidebar::-webkit-scrollbar-thumb { background: #333; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: #555; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">Agentic Text-to-<span>SQL</span></div>
+    </div>
+    <div class="header-right">
+      <div class="model-selector">
+        <select id="modelSelect" onchange="onModelChange()">
+          <option value="accounts/fireworks/models/gpt-oss-120b">GPT-OSS 120B (default)</option>
+          <option value="accounts/fireworks/models/deepseek-v4-flash">DeepSeek V4 Flash</option>
+          <option value="accounts/fireworks/models/glm-5p2">GLM 5.2</option>
+          <option value="accounts/fireworks/models/kimi-k2p6">Kimi K2.6</option>
+          <option value="accounts/fireworks/models/deepseek-v4-pro">DeepSeek V4 Pro</option>
+        </select>
+      </div>
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Ready</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- ── Sidebar ── -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <h3>Schema Browser</h3>
+        <div id="schemaTree"><div style="color:#666;font-size:12px;">Loading schema...</div></div>
+      </div>
+      <div class="sidebar-section">
+        <h3>Session</h3>
+        <div class="session-info">
+          <div class="session-id" id="sessionIdDisplay">—</div>
+        </div>
+        <button class="sidebar-btn" onclick="newSession()">+ New Session</button>
+        <button class="sidebar-btn" onclick="clearChat()">Clear Conversation</button>
+      </div>
+      <div class="sidebar-section">
+        <h3>Quick Actions</h3>
+        <button class="sidebar-btn" onclick="fillQuestion('What are the top 5 best-selling genres by total sales?')">Top 5 genres by sales</button>
+        <button class="sidebar-btn" onclick="fillQuestion('List all albums by the artist AC/DC.')">Albums by AC/DC</button>
+        <button class="sidebar-btn" onclick="fillQuestion('What is the total revenue generated in the year 2021?')">Revenue in 2021</button>
+        <button class="sidebar-btn" onclick="fillQuestion('Which artists have tracks in more than 3 different genres?')">Artists with 3+ genres</button>
+      </div>
+    </div>
+
+    <!-- ── Main Panel ── -->
+    <div class="main">
+      <div class="tab-bar">
+        <div class="tab active" data-tab="chat" onclick="switchTab('chat')">Chat</div>
+        <div class="tab" data-tab="benchmark" onclick="switchTab('benchmark')">Benchmark</div>
+        <div class="tab" data-tab="eval" onclick="switchTab('eval')">Evaluation</div>
+      </div>
+
+      <!-- Chat Tab -->
+      <div class="tab-content active" id="tab-chat">
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div style="text-align:center;color:var(--text-muted);padding:40px 20px;">
+              <div style="font-size:28px;margin-bottom:8px;">&#128269;</div>
+              <div style="font-size:15px;">Ask a question about your database in natural language</div>
+              <div style="font-size:13px;margin-top:4px;">The agent will generate SQL, execute it, and summarize the results</div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <div class="chat-input-row">
+              <textarea class="chat-input" id="chatInput" placeholder="Type your question..." rows="1"
+                onkeydown="onInputKeydown(event)" oninput="autoResize(this)"></textarea>
+              <button class="btn btn-primary" id="askBtn" onclick="sendQuery()">Ask</button>
+            </div>
+            <div class="chat-actions">
+              <button class="btn btn-secondary" onclick="clearChat()">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Benchmark Tab -->
+      <div class="tab-content" id="tab-benchmark">
+        <div class="benchmark-container">
+          <div id="benchmarkContent"><div style="text-align:center;color:var(--text-muted);padding:40px;">Loading benchmark data...</div></div>
+        </div>
+      </div>
+
+      <!-- Eval Tab -->
+      <div class="tab-content" id="tab-eval">
+        <div class="eval-container">
+          <div id="evalContent"><div style="text-align:center;color:var(--text-muted);padding:40px;">Loading evaluation data...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Sample Rows Modal ── -->
+<div class="modal-overlay" id="sampleModal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title"><span id="modalTableName"></span><span class="modal-close" onclick="closeModal()">&times;</span></div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentSessionId = null;
+let currentModel = 'accounts/fireworks/models/gpt-oss-120b';
+let benchmarkLoaded = false;
+let evalLoaded = false;
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  await loadSchema();
+  await createNewSession();
+}
+
+async function createNewSession() {
+  try {
+    const resp = await fetch('/api/session/new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: currentModel }),
+    });
+    const data = await resp.json();
+    currentSessionId = data.session_id;
+    document.getElementById('sessionIdDisplay').textContent = currentSessionId.substring(0, 8) + '...';
+  } catch (e) {
+    console.error('Failed to create session:', e);
+  }
+}
+
+function newSession() {
+  document.getElementById('chatMessages').innerHTML = `
+    <div style="text-align:center;color:var(--text-muted);padding:40px 20px;">
+      <div style="font-size:28px;margin-bottom:8px;">&#128269;</div>
+      <div style="font-size:15px;">Ask a question about your database in natural language</div>
+    </div>`;
+  createNewSession();
+}
+
+// ── Schema ─────────────────────────────────────────────────────────────────
+async function loadSchema() {
+  try {
+    const resp = await fetch('/api/schema');
+    const data = await resp.json();
+    renderSchema(data.tables);
+  } catch (e) {
+    document.getElementById('schemaTree').innerHTML = '<div style="color:#e74c3c;font-size:12px;">Failed to load schema</div>';
+  }
+}
+
+function renderSchema(tables) {
+  const container = document.getElementById('schemaTree');
+  container.innerHTML = tables.map(t => `
+    <div class="schema-table">
+      <div class="schema-table-header" onclick="toggleTable('${t.name}', this)">
+        <div class="table-name">
+          <span class="chevron">&#9654;</span>
+          <span>${t.name}</span>
+        </div>
+        <span class="sample-btn" onclick="event.stopPropagation();loadSampleRows('${t.name}')">sample</span>
+      </div>
+      <div class="schema-columns" id="cols-${t.name}">
+        ${t.columns.map(c => `
+          <div class="schema-col">
+            <span class="col-name">${c.name}</span>
+            <span class="col-type">${c.type || '—'}</span>
+            ${c.pk ? '<span class="pk-badge">PK</span>' : ''}
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleTable(name, el) {
+  el.classList.toggle('expanded');
+  document.getElementById('cols-' + name).classList.toggle('show');
+}
+
+async function loadSampleRows(tableName) {
+  try {
+    const resp = await fetch('/api/sample-rows/' + tableName);
+    const data = await resp.json();
+    document.getElementById('modalTableName').textContent = 'Sample rows: ' + tableName;
+    if (data.rows.length === 0) {
+      document.getElementById('modalContent').innerHTML = '<p style="color:var(--text-muted);">No rows in this table.</p>';
+    } else {
+      const cols = Object.keys(data.rows[0]);
+      document.getElementById('modalContent').innerHTML = renderTableHTML(data.rows, cols);
+    }
+    document.getElementById('sampleModal').classList.add('show');
+  } catch (e) {
+    document.getElementById('modalContent').innerHTML = '<p class="error-text">Failed to load sample rows: ' + e.message + '</p>';
+    document.getElementById('sampleModal').classList.add('show');
+  }
+}
+
+function closeModal(e) {
+  if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal-close')) {
+    document.getElementById('sampleModal').classList.remove('show');
+  }
+}
+
+// ── Chat ───────────────────────────────────────────────────────────────────
+function fillQuestion(q) {
+  document.getElementById('chatInput').value = q;
+  document.getElementById('chatInput').focus();
+  autoResize(document.getElementById('chatInput'));
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function onInputKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendQuery();
+  }
+}
+
+function setStatus(loading, text) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  if (loading) { dot.classList.add('loading'); } else { dot.classList.remove('loading'); }
+  txt.textContent = text;
+}
+
+async function sendQuery() {
+  const input = document.getElementById('chatInput');
+  const question = input.value.trim();
+  if (!question) return;
+
+  // Display user message
+  appendMessage('user', question);
+  input.value = '';
+  autoResize(input);
+
+  // Show loading
+  const loadingId = appendLoading();
+  setStatus(true, 'Generating SQL...');
+  document.getElementById('askBtn').disabled = true;
+
+  try {
+    const resp = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: currentSessionId,
+        question: question,
+        model: currentModel,
+      }),
+    });
+    const data = await resp.json();
+
+    // Update session ID (in case a new session was created)
+    if (data.session_id) currentSessionId = data.session_id;
+    document.getElementById('sessionIdDisplay').textContent = currentSessionId.substring(0, 8) + '...';
+
+    // Remove loading
+    removeLoading(loadingId);
+
+    // Display agent response
+    appendAgentResponse(data);
+    setStatus(false, 'Ready');
+  } catch (e) {
+    removeLoading(loadingId);
+    appendMessage('agent', '<p class="error-text">Error: ' + e.message + '</p>');
+    setStatus(false, 'Error');
+  } finally {
+    document.getElementById('askBtn').disabled = false;
+  }
+}
+
+function appendMessage(role, content) {
+  const container = document.getElementById('chatMessages');
+  // Remove placeholder if present
+  const placeholder = container.querySelector('div[style*="text-align:center"]');
+  if (placeholder) placeholder.remove();
+
+  const div = document.createElement('div');
+  div.className = 'chat-message message-' + role;
+  div.innerHTML = `
+    <div class="message-role">${role}</div>
+    <div class="message-bubble">${escapeHtml(content)}</div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendLoading() {
+  const container = document.getElementById('chatMessages');
+  const id = 'loading-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'chat-message message-agent';
+  div.id = id;
+  div.innerHTML = `
+    <div class="message-role">agent</div>
+    <div class="message-bubble">
+      <div class="loading-message"><div class="spinner"></div> Generating SQL and executing query...</div>
+    </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function removeLoading(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function appendAgentResponse(data) {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-message message-agent';
+
+  let html = '<div class="message-role">agent</div><div class="message-bubble">';
+
+  // SQL
+  if (data.sql) {
+    html += `<div class="agent-response-section">
+      <div class="section-label">SQL</div>
+      <div class="sql-block">${escapeHtml(data.sql)}</div>
+    </div>`;
+  }
+
+  // Results
+  if (data.success && data.results && data.results.length > 0) {
+    html += `<div class="agent-response-section">
+      <div class="section-label">Results (${data.results.length} rows)</div>
+      <div class="results-table-wrapper">${renderTableHTML(data.results, data.columns)}</div>
+    </div>`;
+  } else if (data.success && (!data.results || data.results.length === 0)) {
+    html += `<div class="agent-response-section"><div class="no-results">(no results returned)</div></div>`;
+  }
+
+  // Error
+  if (data.error) {
+    html += `<div class="agent-response-section"><div class="error-text">Error: ${escapeHtml(data.error)}</div></div>`;
+  }
+
+  // Summary
+  if (data.summary) {
+    html += `<div class="agent-response-section">
+      <div class="section-label">Summary</div>
+      <div class="summary-text">${formatSummary(data.summary)}</div>
+    </div>`;
+  }
+
+  // Meta badges
+  html += `<div class="response-meta">
+    <span class="meta-badge latency">&#9201; ${data.latency}s</span>
+    <span class="meta-badge attempts">&#128260; ${data.attempts} attempt(s)</span>
+    ${data.success ? '' : '<span class="meta-badge error">Failed</span>'}
+  </div>`;
+
+  html += '</div>';
+  div.innerHTML = html;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function renderTableHTML(rows, columns) {
+  if (!rows || rows.length === 0) return '<div class="no-results">(no results)</div>';
+  const cols = columns || Object.keys(rows[0]);
+  let html = '<table class="results-table"><thead><tr>';
+  cols.forEach(c => html += '<th>' + escapeHtml(c) + '</th>');
+  html += '</tr></thead><tbody>';
+  rows.forEach(row => {
+    html += '<tr>';
+    cols.forEach(c => {
+      let val = row[c];
+      if (val === null || val === undefined) val = '';
+      if (typeof val === 'number') val = val.toLocaleString();
+      html += '<td>' + escapeHtml(String(val)) + '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+function clearChat() {
+  if (!currentSessionId) return;
+  fetch('/api/session/' + currentSessionId + '/clear', { method: 'POST' })
+    .then(() => {
+      document.getElementById('chatMessages').innerHTML = `
+        <div style="text-align:center;color:var(--text-muted);padding:40px 20px;">
+          <div style="font-size:28px;margin-bottom:8px;">&#128269;</div>
+          <div style="font-size:15px;">Conversation cleared. Ask a new question.</div>
+        </div>`;
+    });
+}
+
+function onModelChange() {
+  currentModel = document.getElementById('modelSelect').value;
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  if (tab === 'benchmark' && !benchmarkLoaded) loadBenchmark();
+  if (tab === 'eval' && !evalLoaded) loadEval();
+}
+
+// ── Benchmark Tab ──────────────────────────────────────────────────────────
+async function loadBenchmark() {
+  try {
+    const resp = await fetch('/api/benchmark');
+    const data = await resp.json();
+    if (data.error) {
+      document.getElementById('benchmarkContent').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px;">' + data.error + '</p>';
+      return;
+    }
+    renderBenchmark(data);
+    benchmarkLoaded = true;
+  } catch (e) {
+    document.getElementById('benchmarkContent').innerHTML = '<p class="error-text">Failed to load: ' + e.message + '</p>';
+  }
+}
+
+function renderBenchmark(data) {
+  let html = '<h2 style="margin-bottom:20px;">Multi-Model Benchmark</h2>';
+
+  // Comparison table
+  html += '<table class="benchmark-table"><thead><tr><th>Model</th><th>Exec</th><th>Data Match</th><th>Avg Latency</th><th>P50 Latency</th></tr></thead><tbody>';
+  Object.entries(data).forEach(([name, d]) => {
+    const s = d.summary;
+    html += `<tr><td><strong>${name}</strong></td><td>${s.exec_success}</td><td>${s.data_match}</td><td>${s.avg_latency}s</td><td>${s.p50_latency}s</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  // Accuracy bar chart
+  html += '<div class="chart-container"><div class="chart-title">Data Match Accuracy by Model</div><div class="bar-chart">';
+  Object.entries(data).forEach(([name, d]) => {
+    const match = parseInt(d.summary.data_match.split('/')[0]);
+    const pct = match * 10;
+    const color = match >= 9 ? 'var(--success)' : match >= 7 ? 'var(--blue)' : 'var(--warning)';
+    html += `<div class="bar-row">
+      <div class="bar-label">${name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};">${match}/10</div></div>
+      <div class="bar-value">${pct}%</div>
+    </div>`;
+  });
+  html += '</div></div>';
+
+  // Latency bar chart with 3s target line
+  const maxLat = Math.max(...Object.values(data).map(d => d.summary.p50_latency));
+  const scaleMax = Math.max(maxLat * 1.2, 3.5);
+  html += '<div class="chart-container"><div class="chart-title">P50 Latency by Model (target: &lt;3s)</div><div class="bar-chart">';
+  // Target line position
+  const targetPct = (3.0 / scaleMax) * 100;
+  Object.entries(data).forEach(([name, d]) => {
+    const lat = d.summary.p50_latency;
+    const pct = (lat / scaleMax) * 100;
+    const color = lat < 3.0 ? 'var(--success)' : 'var(--error)';
+    html += `<div class="bar-row">
+      <div class="bar-label">${name}</div>
+      <div class="bar-track">
+        <div class="target-line" style="left:${targetPct}%;">
+          <div class="target-label">3s</div>
+        </div>
+        <div class="bar-fill" style="width:${pct}%;background:${color};">${lat}s</div>
+      </div>
+      <div class="bar-value">${lat}s</div>
+    </div>`;
+  });
+  html += '</div></div>';
+
+  document.getElementById('benchmarkContent').innerHTML = html;
+}
+
+// ── Eval Tab ───────────────────────────────────────────────────────────────
+async function loadEval() {
+  try {
+    const resp = await fetch('/api/eval');
+    const data = await resp.json();
+    if (data.error) {
+      document.getElementById('evalContent').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px;">' + data.error + '</p>';
+      return;
+    }
+    renderEval(data);
+    evalLoaded = true;
+  } catch (e) {
+    document.getElementById('evalContent').innerHTML = '<p class="error-text">Failed to load: ' + e.message + '</p>';
+  }
+}
+
+function renderEval(data) {
+  const s = data.summary;
+  let html = '<h2 style="margin-bottom:20px;">Evaluation Results</h2>';
+
+  // Summary cards
+  html += '<div class="eval-cards">';
+  html += `<div class="eval-card green"><div class="card-value">${s.exec_rate}</div><div class="card-label">Execution</div></div>`;
+  html += `<div class="eval-card blue"><div class="card-value">${s.match_rate}</div><div class="card-label">Data Match</div></div>`;
+  html += `<div class="eval-card orange"><div class="card-value">${s.p50_latency}s</div><div class="card-label">P50 Latency</div></div>`;
+  html += `<div class="eval-card purple"><div class="card-value">${s.avg_latency}s</div><div class="card-label">Avg Latency</div></div>`;
+  html += '</div>';
+
+  // Per-question table
+  html += '<table class="eval-table"><thead><tr><th>ID</th><th>Tier</th><th>Question</th><th>Exec</th><th>Match</th><th>Latency</th><th>Attempts</th><th>Notes</th></tr></thead><tbody>';
+  data.questions.forEach(q => {
+    const execClass = q.exec_success ? 'match' : 'fail';
+    const matchClass = q.data_match ? 'match' : (q.exec_success ? 'exec' : 'fail');
+    let notes = '';
+    if (!q.exec_success) notes = (q.error || '').substring(0, 40);
+    else if (!q.data_match) notes = `got ${q.generated_result_count} rows, gold ${q.gold_result_count}`;
+    html += `<tr>
+      <td>${q.question_id}</td>
+      <td>T${q.tier}</td>
+      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(q.question)}</td>
+      <td><span class="status-pill ${execClass}">${q.exec_success ? 'OK' : 'FAIL'}</span></td>
+      <td><span class="status-pill ${matchClass}">${q.data_match ? 'YES' : 'no'}</span></td>
+      <td>${q.latency}s</td>
+      <td>${q.attempts}</td>
+      <td style="font-size:12px;color:var(--text-muted);">${escapeHtml(notes)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+
+  document.getElementById('evalContent').innerHTML = html;
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function formatSummary(text) {
+  // Convert markdown bold **text** to <strong>text</strong>
+  return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── Start ──────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
