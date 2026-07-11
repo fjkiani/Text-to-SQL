@@ -401,6 +401,8 @@ def create_app(db_path: str = None) -> FastAPI:
                 "success": cached.success,
                 "error": cached.error,
                 "cache_hit": True,
+                "chart": cached.chart or _detect_chart_type(cached.results, cached.columns),
+                "trust": cached.trust,
             }
 
         # Get or create session
@@ -434,6 +436,8 @@ def create_app(db_path: str = None) -> FastAPI:
                 attempts=response.attempts,
                 success=response.success,
                 error=response.error,
+                trust=response.trust,
+                chart=_detect_chart_type(response.results, response.columns),
             )
 
             # Track usage

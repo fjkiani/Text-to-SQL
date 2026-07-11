@@ -29,6 +29,8 @@ class CacheEntry:
     attempts: int
     success: bool
     error: Optional[str]
+    trust: Optional[dict] = None
+    chart: Optional[dict] = None
     cached_at: float = field(default_factory=time.time)
     hit_count: int = 0
 
@@ -163,7 +165,9 @@ class SemanticCache:
 
     def put(self, question: str, sql: str, results: list, columns: list,
             summary: str, latency: float, attempts: int, success: bool,
-            error: Optional[str] = None) -> None:
+            error: Optional[str] = None,
+            trust: Optional[dict] = None,
+            chart: Optional[dict] = None) -> None:
         """Store a query response in the cache."""
         # Evict expired entries if we're at capacity
         if len(self._cache) >= self.max_entries:
@@ -181,6 +185,8 @@ class SemanticCache:
             attempts=attempts,
             success=success,
             error=error,
+            trust=trust,
+            chart=chart,
         )
 
     def _is_expired(self, entry: CacheEntry) -> bool:
