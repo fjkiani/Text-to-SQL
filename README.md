@@ -198,7 +198,10 @@ Outputs:
 ├── README.md
 ├── setup.sh                    # Downloads Chinook database
 ├── pyproject.toml              # Dependencies + script entry points
+├── requirements.txt            # pip dependencies (for Render deployment)
+├── render.yaml                 # Render.com Blueprint (IaC deployment config)
 ├── uv.lock
+├── .github/workflows/eval.yml  # CI eval pipeline (GitHub Actions)
 ├── src/
 │   ├── __init__.py
 │   ├── utils.py                # DB utilities: load, query, DDL extraction, safe execution
@@ -207,6 +210,11 @@ Outputs:
 │   ├── web.py                  # FastAPI web app (BI tool UI backend)
 │   ├── benchmark.py            # Multi-model benchmark harness
 │   ├── eval.py                 # Evaluation harness (produces dev_answers.json)
+│   ├── ci_eval.py              # CI eval pipeline with regression detection
+│   ├── cache.py                # Semantic cache (exact + fuzzy match, TTL, metrics)
+│   ├── few_shot.py             # Few-shot prompt registry (8 verified SQL examples)
+│   ├── ratelimit.py            # Rate limiting + usage tracking (sliding window)
+│   ├── dialect.py              # Multi-dialect SQL support (SQLite, PostgreSQL, MySQL)
 │   └── static/
 │       └── index.html          # Full BI tool frontend (vanilla HTML/JS/CSS)
 ├── data/
@@ -219,6 +227,130 @@ Outputs:
 ├── benchmark_results.json      # Multi-model comparison results
 └── EMAIL_TO_RAUL.md            # Customer email response
 ```
+
+## Production Features
+
+### Semantic Caching
+
+Repeated or similar questions return cached results in <1ms without calling the LLM. The cache uses:
+- **Exact match**: Normalized question hash (case/punctuation insensitive) — O(1) lookup
+- **Fuzzy match**: Jaccard similarity on word sets for paraphrased questions (threshold: 0.85)
+- **TTL**: Entries expire after 1 hour (configurable)
+- **LRU eviction**: Oldest entries evicted when cache reaches capacity
+
+```python
+from src.cache import SemanticCache
+cache = SemanticCache(ttl_seconds=3600, similarity_threshold=0.85)
+hit = cache.get("What are the top 5 genres?")  # <1ms if cached
+```
+
+Cache metrics available at `GET /api/cache/metrics`.
+
+### Few-Shot Prompt Registry
+
+8 verified SQL examples covering 8 query patterns (aggregation joins, date filtering, window functions, HAVING clauses, LEFT JOINs, etc.) are injected into the system prompt. This teaches the model schema-specific patterns, pushing accuracy from 90% toward 95%+.
+
+```python
+from src.few_shot import build_few_shot_block
+block = build_few_shot_block(max_examples=5)  # Inject into system prompt
+```
+
+### Rate Limiting & Usage Tracking
+
+Sliding window rate limiter (30 req/min, 500 req/hour by default) with per-session usage tracking including cost estimates.
+
+```python
+from src.ratelimit import RateLimiter, UsageTracker
+limiter = RateLimiter(requests_per_minute=30, requests_per_hour=500)
+tracker = UsageTracker()
+```
+
+Rate limit status at `GET /api/rate-limit/{client_id}`. Usage metrics at `GET /api/usage` and `GET /api/usage/{session_id}`.
+
+### Query Result Visualization
+
+The backend auto-detects 2-column numeric/categorical results and returns chart data. The frontend renders colored bar charts for aggregation results (e.g., "Genre vs TotalSales").
+
+### Multi-Dialect SQL Support
+
+Dialect detection from connection strings with dialect-specific SQL rules injected into the system prompt:
+
+```python
+from src.dialect import detect_dialect, get_dialect_specific_prompt
+detect_dialect("postgresql://user:pass@host/db")  # -> "postgresql"
+get_dialect_specific_prompt("postgresql")  # -> EXTRACT(), ||, ILIKE, ::type rules
+```
+
+Supports SQLite (default), PostgreSQL, and MySQL.
+
+### CI Evaluation Pipeline
+
+Regression detection with baseline comparison, designed for GitHub Actions:
+
+```bash
+# Run eval with regression checks
+python -m src.ci_eval --min-exec-accuracy 1.0 --min-match-accuracy 0.80 --max-p50-latency 3.0
+
+# Update baseline after intentional prompt changes
+python -m src.ci_eval --update-baseline
+```
+
+Exit codes: 0=pass, 1=accuracy regression, 2=latency regression, 3=eval error.
+
+The included GitHub Actions workflow (`.github/workflows/eval.yml`) runs the CI eval on every push/PR that modifies `src/` or the dev questions.
+
+## Deployment
+
+### Render.com
+
+The app is configured for deployment on Render via `render.yaml`:
+
+```yaml
+services:
+  - type: web
+    name: agentic-text-to-sql
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.web:create_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: FIREWORKS_API_KEY
+        sync: false
+```
+
+To deploy:
+1. Push the code to GitHub
+2. Create a new Web Service on Render, connect the GitHub repo
+3. Set the `FIREWORKS_API_KEY` environment variable
+4. Render auto-detects `render.yaml` and deploys
+
+Or use the Render API:
+```bash
+curl -X POST https://api.render.com/v1/services \
+  -H "Authorization: Bearer $RENDER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d @render.yaml  # (converted to JSON)
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Web UI (HTML) |
+| `/health` | GET | Health check |
+| `/api/models` | GET | Available models |
+| `/api/schema` | GET | Database schema |
+| `/api/sample-rows/{table}` | GET | Sample rows from a table |
+| `/api/query` | POST | Process a natural language question |
+| `/api/session/new` | POST | Create a new session |
+| `/api/session/{id}/clear` | POST | Clear session history |
+| `/api/session/{id}/history` | GET | Get conversation history |
+| `/api/benchmark` | GET | Benchmark results |
+| `/api/eval` | GET | Eval results |
+| `/api/cache/metrics` | GET | Semantic cache metrics |
+| `/api/usage` | GET | Global usage metrics |
+| `/api/usage/{session_id}` | GET | Per-session usage |
+| `/api/rate-limit/{client_id}` | GET | Rate limit status |
 
 ## Results
 
