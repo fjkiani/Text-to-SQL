@@ -331,23 +331,40 @@ class TextToSQLAgent:
                     trust=trust_report,
                 )
 
-        # Exhausted retries — return what we have
+        # Exhausted retries — return what we have.
+        # If we got real results but the model never emitted a final text response,
+        # this is a "silent truncation": the SQL worked but we never got a summary.
+        # We surface this honestly instead of pretending success or masking with a fake summary.
         latency = time.time() - start_time
+        had_results = len(last_results) > 0
+        truncated = had_results  # got answer but ran out of iterations before summary
 
-        # Run trust analysis even on failure
+        if had_results:
+            # Synthesize a minimal fallback summary from the results so the user isn't stranded.
+            # This is a system-generated placeholder — flagged explicitly for the trust layer.
+            row_count = len(last_results)
+            fallback_summary = (
+                f"[System summary — model exhausted iterations before generating a natural-language "
+                f"answer.] The query returned {row_count} row(s). See the SQL and results above."
+            )
+        else:
+            fallback_summary = ""
+
+        # Run trust analysis with the truncation signal
         trust_report = self._analyze_trust(
-            question, last_sql, last_results, last_columns, "", attempts
+            question, last_sql, last_results, last_columns, fallback_summary, attempts,
+            truncated=truncated,
         )
 
         return AgentResponse(
             sql=last_sql,
             results=last_results,
             columns=last_columns,
-            summary="",
+            summary=fallback_summary,
             latency=latency,
             attempts=attempts,
-            success=len(last_results) > 0,
-            error=last_error or "Max retries exceeded without final response",
+            success=had_results,
+            error=None if had_results else (last_error or "Max iterations exceeded without a final response"),
             raw_messages=self.messages.copy(),
             trust=trust_report,
         )
@@ -360,6 +377,7 @@ class TextToSQLAgent:
         columns: list,
         summary: str,
         attempts: int,
+        truncated: bool = False,
     ) -> dict:
         """Run trust analysis and return a serializable trust report."""
         try:
@@ -370,6 +388,7 @@ class TextToSQLAgent:
                 columns=columns,
                 summary=summary,
                 attempts=attempts,
+                truncated=truncated,
             )
             return report.to_dict()
         except Exception as e:

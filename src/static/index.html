@@ -1456,7 +1456,18 @@ async function loadEval() {
 
 function renderEval(data) {
   const s = data.summary;
-  let html = '<h2 style="margin-bottom:20px;">Evaluation Results</h2>';
+  const meta = data._meta || {};
+  let html = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px;">';
+  html += '<h2 style="margin:0;">Evaluation Results</h2>';
+  html += '<button id="rerunEvalBtn" onclick="rerunEval()" style="padding:8px 16px;background:var(--blue);color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Re-run eval (live)</button>';
+  html += '</div>';
+
+  if (meta.generated_at) {
+    html += `<div style="background:#fffbea;border:1px solid #f0d97e;padding:10px 14px;border-radius:6px;margin-bottom:16px;font-size:13px;color:#7a5a00;">
+      <strong>Snapshot from a past run:</strong> generated ${escapeHtml(meta.age_display)} at ${escapeHtml(meta.generated_at)}.
+      <br><span style="color:#8a6a20;">These numbers are from ${escapeHtml(meta.source || 'a static file')}. Click "Re-run eval" to run the current agent against all 10 dev questions live.</span>
+    </div>`;
+  }
 
   // Summary cards
   html += '<div class="eval-cards">';
@@ -1488,6 +1499,35 @@ function renderEval(data) {
   html += '</tbody></table>';
 
   document.getElementById('evalContent').innerHTML = html;
+}
+
+async function rerunEval() {
+  const btn = document.getElementById('rerunEvalBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Running... (up to 2 min)';
+  }
+  try {
+    const resp = await fetch('/api/eval/rerun', { method: 'POST' });
+    const data = await resp.json();
+    if (data.success) {
+      // Reload the eval tab with fresh data
+      evalLoaded = false;
+      await loadEval();
+    } else {
+      alert('Rerun failed: ' + (data.error || 'unknown error'));
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Re-run eval (live)';
+      }
+    }
+  } catch (e) {
+    alert('Rerun failed: ' + e.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Re-run eval (live)';
+    }
+  }
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────

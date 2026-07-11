@@ -488,11 +488,53 @@ def create_app(db_path: str = None) -> FastAPI:
 
     @app.get("/api/eval")
     async def eval_results():
-        """Return eval results if available."""
+        """Return eval results if available, plus provenance metadata so the client
+        can display when this snapshot was generated (transparency about staleness)."""
         eval_path = Path("eval_report.json")
         if eval_path.exists():
-            return json.loads(eval_path.read_text())
+            try:
+                mtime = eval_path.stat().st_mtime
+                generated_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+                age_seconds = time.time() - mtime
+                age_hours = age_seconds / 3600
+                if age_hours < 1:
+                    age_display = f"{int(age_seconds / 60)} minutes ago"
+                elif age_hours < 24:
+                    age_display = f"{age_hours:.1f} hours ago"
+                else:
+                    age_display = f"{age_hours / 24:.1f} days ago"
+                data = json.loads(eval_path.read_text())
+                data["_meta"] = {
+                    "generated_at": generated_at,
+                    "age_seconds": int(age_seconds),
+                    "age_display": age_display,
+                    "source": "eval_report.json (static snapshot)",
+                    "note": "These numbers come from a past run of `python -m src.eval` against the real agent. Re-run to refresh.",
+                }
+                return data
+            except Exception as e:
+                return {"error": f"Failed to read eval_report.json: {e}"}
         return {"error": "No eval results found. Run: python -m src.eval"}
+
+    @app.post("/api/eval/rerun")
+    async def rerun_eval():
+        """Trigger a live re-run of the eval against the current agent.
+        Blocks up to ~2 minutes; runs all 10 dev questions."""
+        try:
+            from src.eval import run_eval
+            report = run_eval(
+                db_path=str(db_path),
+                model=DEFAULT_MODEL,
+                answers_output="dev_answers.json",
+                report_output="eval_report.json",
+            )
+            return {
+                "success": True,
+                "summary": report["summary"],
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     @app.get("/api/cache/metrics")
     async def cache_metrics():

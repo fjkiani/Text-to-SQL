@@ -406,10 +406,32 @@ class TrustLayer:
         summary: str,
         attempts: int,
         few_shot_patterns: list[str] = None,
+        truncated: bool = False,
     ) -> TrustReport:
-        """Run all trust checks and return a TrustReport."""
+        """Run all trust checks and return a TrustReport.
+
+        Args:
+            truncated: True if the agent hit max_iterations before producing a final
+                summary. When True, we deduct confidence and add a critical flag —
+                the SQL may be correct but the agent's control loop broke.
+        """
         flags: list[ValidationFlag] = []
         score = 100  # Start at 100 and deduct for issues
+
+        # ── 0. Loop truncation (agent didn't emit a final summary) ──
+        # This is more important than most signals: if the agent ran out of
+        # iterations, we don't know if the model was "done" or was still
+        # exploring/verifying. Big deduction.
+        if truncated:
+            score -= 25
+            flags.append(ValidationFlag(
+                severity="critical",
+                category="agent_control",
+                message="Agent exhausted max iterations before producing a final answer",
+                detail="The SQL executed successfully, but the model made repeated tool calls "
+                       "without emitting a natural-language summary. Results are shown, but the "
+                       "agent's reasoning was truncated. Verify results independently.",
+            ))
 
         # ── 1. SQL / JOIN validation ──
         join_validation = self._validate_joins(sql, flags)
@@ -652,7 +674,17 @@ class TrustLayer:
         few_shot_patterns: list[str] = None,
         flags: list[ValidationFlag] = None,
     ) -> dict:
-        """Track which few-shot patterns influenced this query and whether it deviated."""
+        """Track which few-shot patterns influenced this query and whether it deviated.
+
+        A pattern only "matches" if BOTH conditions hold:
+        1. Meaningful table overlap: ≥2 shared tables AND Jaccard similarity ≥ 0.4
+           (this rejects UNION-over-many-tables queries that trivially share tables
+           with every example)
+        2. Structural similarity: same query shape (JOIN vs UNION, similar aggregation)
+
+        A pattern is only marked "deviated" if it truly matched — we never flag a
+        deviation from a pattern the query wasn't trying to be.
+        """
         from src.few_shot import FEW_SHOT_EXAMPLES
 
         provenance = {
@@ -666,52 +698,73 @@ class TrustLayer:
             return provenance
 
         sql_lower = sql.lower()
+        sql_tables = set(extract_tables(sql_lower))
 
-        # Check each few-shot example for similarity
+        # Query-shape signals
+        sql_uses_union = " union " in sql_lower or "union all" in sql_lower
+        sql_uses_join = " join " in sql_lower
+        sql_uses_window = " over(" in sql_lower or " over (" in sql_lower
+        sql_agg = set(re.findall(r'\b(sum|count|avg|min|max)\s*\(', sql_lower))
+
         for ex in FEW_SHOT_EXAMPLES:
             ex_sql = ex["sql"].lower()
-
-            # Simple pattern matching: check if key SQL fragments match
-            # Extract key structural elements: tables joined, aggregation functions, GROUP BY columns
             ex_tables = set(extract_tables(ex_sql))
-            sql_tables = set(extract_tables(sql_lower))
 
             table_overlap = ex_tables & sql_tables
-            if len(table_overlap) >= 2:
-                # Significant table overlap — this pattern likely influenced the query
-                similarity = len(table_overlap) / max(len(ex_tables | sql_tables), 1)
-                provenance["matched_patterns"].append(ex["pattern"])
-                provenance["matched_examples"].append({
-                    "pattern": ex["pattern"],
-                    "question": ex["question"],
-                    "similarity": round(similarity, 3),
-                    "shared_tables": list(table_overlap),
-                })
-                provenance["pattern_similarity"][ex["pattern"]] = round(similarity, 3)
+            if len(table_overlap) < 2:
+                continue
 
-                # Check for deviation: same tables but different join type or missing key clause
-                ex_has_left_join = "left join" in ex_sql
-                sql_has_left_join = "left join" in sql_lower
-                if ex_has_left_join and not sql_has_left_join:
-                    provenance["deviated_from_pattern"] = True
-                    if flags:
-                        flags.append(ValidationFlag(
-                            severity="warning",
-                            category="provenance",
-                            message=f"Query deviates from '{ex['pattern']}' pattern: example uses LEFT JOIN but generated SQL doesn't",
-                            detail=f"Example question: {ex['question']}",
-                        ))
+            # Jaccard on tables — a UNION over 11 tables that shares 2 with a
+            # 2-table example gives 2/11 ≈ 0.18, which fails this threshold.
+            jaccard = len(table_overlap) / max(len(ex_tables | sql_tables), 1)
+            if jaccard < 0.4:
+                continue
 
-                # Check if aggregation function matches
-                ex_agg = re.findall(r'\b(SUM|COUNT|AVG|MIN|MAX)\s*\(', ex_sql)
-                sql_agg = re.findall(r'\b(SUM|COUNT|AVG|MIN|MAX)\s*\(', sql_lower)
-                if set(ex_agg) != set(sql_agg) and ex_agg:
-                    if flags:
-                        flags.append(ValidationFlag(
-                            severity="info",
-                            category="provenance",
-                            message=f"Aggregation differs from '{ex['pattern']}' pattern: example uses {ex_agg}, SQL uses {sql_agg}",
-                        ))
+            # Query-shape gate: only "match" if the shapes are compatible.
+            # A UNION over 11 tables isn't matching a JOIN-based aggregation pattern.
+            ex_uses_join = " join " in ex_sql
+            ex_uses_window = " over(" in ex_sql or " over (" in ex_sql
+
+            # If the example uses JOIN and our SQL uses UNION (or vice versa), skip.
+            if ex_uses_join and sql_uses_union and not sql_uses_join:
+                continue
+            if ex_uses_window and not sql_uses_window:
+                # Window functions are a strong pattern signal — no window func = not this pattern
+                continue
+
+            # Passed the gates — this pattern actually looks like it might have influenced the SQL.
+            similarity = jaccard
+            provenance["matched_patterns"].append(ex["pattern"])
+            provenance["matched_examples"].append({
+                "pattern": ex["pattern"],
+                "question": ex["question"],
+                "similarity": round(similarity, 3),
+                "shared_tables": list(table_overlap),
+            })
+            provenance["pattern_similarity"][ex["pattern"]] = round(similarity, 3)
+
+            # Deviation checks — only on patterns that actually matched.
+            ex_has_left_join = "left join" in ex_sql
+            sql_has_left_join = "left join" in sql_lower
+            if ex_has_left_join and not sql_has_left_join and sql_uses_join:
+                provenance["deviated_from_pattern"] = True
+                if flags:
+                    flags.append(ValidationFlag(
+                        severity="warning",
+                        category="provenance",
+                        message=f"Query deviates from '{ex['pattern']}' pattern: example uses LEFT JOIN but generated SQL doesn't",
+                        detail=f"Example question: {ex['question']}",
+                    ))
+
+            ex_agg = set(re.findall(r'\b(sum|count|avg|min|max)\s*\(', ex_sql))
+            if ex_agg and ex_agg != sql_agg and sql_agg:
+                # Only flag as info — different aggregations are common and often fine
+                if flags:
+                    flags.append(ValidationFlag(
+                        severity="info",
+                        category="provenance",
+                        message=f"Aggregation differs from '{ex['pattern']}' pattern: example uses {sorted(ex_agg)}, SQL uses {sorted(sql_agg)}",
+                    ))
 
         if provenance["matched_patterns"] and flags:
             flags.append(ValidationFlag(
