@@ -159,7 +159,7 @@ Open `http://localhost:8000` in your browser.
 | `/api/models` | GET | List available models with cost info |
 | `/api/schema` | GET | Database schema as structured JSON + DDL |
 | `/api/sample-rows/{table}` | GET | Sample rows from a table |
-| `/api/query` | POST | Process a natural language question |
+| `/api/query` | POST | Process a natural language question (returns SQL, results, summary, trust report, chart data) |
 | `/api/session/new` | POST | Create a new session |
 | `/api/session/{id}/clear` | POST | Clear session history |
 | `/api/session/{id}/history` | GET | Get session conversation history |
@@ -298,6 +298,31 @@ python -m src.ci_eval --update-baseline
 Exit codes: 0=pass, 1=accuracy regression, 2=latency regression, 3=eval error.
 
 The included GitHub Actions workflow (`.github/workflows/eval.yml`) runs the CI eval on every push/PR that modifies `src/` or the dev questions.
+
+### Trust Layer
+
+Every query is automatically analyzed for trustworthiness. The trust layer computes 5 independent signals and combines them into a 0–100 confidence score:
+
+1. **SQL validation** — Parses the generated SQL to extract tables, aliases, and JOIN conditions. Each JOIN is validated against the database's foreign-key graph (built via `PRAGMA foreign_key_list`). Flags: OK (follows FK), critical (wrong join column), warning (no direct FK relationship), critical (unknown table).
+
+2. **Row count sanity** — Classifies the question type (top_n, count, single_aggregate, per_entity, list_all, single_result, lookup, ranking) and computes an expected row count range. Flags if the actual result count falls outside that range.
+
+3. **Confidence scoring** — Starts at 100 and applies deductions: −30 for invalid joins, −10 for unvalidated joins, −15 for unknown tables, −10/−20 for row count warnings/criticals, −10 per self-healing retry, −15 for summary verification failure, −10 for provenance deviation. Bonus: +5 for matching a known-good pattern. Labels: high (≥85), medium (≥65), low (≥40), very_low (<40).
+
+4. **Summary verification** — Cross-checks the LLM-generated natural-language summary against the actual result data: verifies count claims, checks that mentioned values appear in results, and validates column name references.
+
+5. **Provenance tracking** — Matches the generated SQL against the few-shot example registry by table overlap. Detects deviations (e.g., example uses LEFT JOIN but the generated SQL doesn't, or uses a different aggregation function).
+
+```python
+from src.trust import TrustLayer
+trust = TrustLayer(db_path="data/Chinook.db")
+report = trust.analyze(question, sql, results, summary, attempts=1)
+print(report.confidence_score)  # 0-100
+print(report.confidence_label)  # "high" / "medium" / "low" / "very_low"
+print(report.flags)             # list of ValidationFlag
+```
+
+The trust report is included in every `/api/query` response and rendered as a panel in the web UI showing the score, individual flags (with severity icons), and provenance information.
 
 ## Deployment
 
