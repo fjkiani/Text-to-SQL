@@ -493,22 +493,36 @@ def create_app(db_path: str = None) -> FastAPI:
         eval_path = Path("eval_report.json")
         if eval_path.exists():
             try:
-                mtime = eval_path.stat().st_mtime
-                generated_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-                age_seconds = time.time() - mtime
+                data = json.loads(eval_path.read_text())
+                # Prefer the embedded run_at (source of truth: when the eval was actually run).
+                # Fall back to file mtime if the report predates this feature.
+                run_at_iso = data.get("run_at")
+                if run_at_iso:
+                    run_dt = datetime.fromisoformat(run_at_iso.replace("Z", "+00:00"))
+                    age_seconds = (datetime.now(timezone.utc) - run_dt).total_seconds()
+                    generated_at = run_at_iso
+                    source_note = "eval_report.json (timestamp from actual eval run)"
+                else:
+                    mtime = eval_path.stat().st_mtime
+                    generated_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+                    age_seconds = time.time() - mtime
+                    source_note = "eval_report.json (file mtime — may be inaccurate if the file was rewritten without a fresh eval)"
+
                 age_hours = age_seconds / 3600
-                if age_hours < 1:
+                if age_seconds < 60:
+                    age_display = "just now"
+                elif age_hours < 1:
                     age_display = f"{int(age_seconds / 60)} minutes ago"
                 elif age_hours < 24:
                     age_display = f"{age_hours:.1f} hours ago"
                 else:
                     age_display = f"{age_hours / 24:.1f} days ago"
-                data = json.loads(eval_path.read_text())
+
                 data["_meta"] = {
                     "generated_at": generated_at,
                     "age_seconds": int(age_seconds),
                     "age_display": age_display,
-                    "source": "eval_report.json (static snapshot)",
+                    "source": source_note,
                     "note": "These numbers come from a past run of `python -m src.eval` against the real agent. Re-run to refresh.",
                 }
                 return data

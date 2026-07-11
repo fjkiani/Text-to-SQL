@@ -195,8 +195,10 @@ def run_eval(
     print(f"\ndev_answers.json written to {answers_output}")
 
     # Write eval_report.json
+    from datetime import datetime, timezone
     report = {
         "model": model,
+        "run_at": datetime.now(timezone.utc).isoformat(),  # embed timestamp of the actual run
         "summary": {
             "total_questions": len(questions),
             "exec_success": exec_count,
