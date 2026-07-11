@@ -397,6 +397,4 @@ The one data mismatch (q_003) is a column projection difference: the agent combi
 2. **Latency**: P50 of 1.97s — well under the 3s target, and a 3.5x improvement over the customer's 7s baseline.
 3. **Cost**: At ~$0.15/$0.60 per million tokens (gpt-oss-120b), the cost is approximately 90% lower than GPT-5.4, making the unit economics work at 30,000 queries/day.
 
-## AI Assistance Disclosure
 
-This implementation was built with assistance from Biomni (Phylo's AI research collaborator). The AI helped with code generation, testing, and the multi-model benchmark. All code was reviewed, tested, and validated against the provided dev questions. The architecture decisions, model selection rationale, and customer email were written based on the actual benchmark results.
