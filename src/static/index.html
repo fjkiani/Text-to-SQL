@@ -712,6 +712,25 @@ body {
 
 .modal-close:hover { color: var(--text); }
 
+/* ── Dashboards Tab ── */
+.dashboards-container { padding: 20px; }
+.dashboards-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+.dashboards-list-panel { background: #fff; border: 1px solid var(--border, #e5e0d5); border-radius: 8px; padding: 16px; }
+.dashboard-item { padding: 10px 12px; border: 1px solid var(--border, #e5e0d5); border-radius: 6px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s; }
+.dashboard-item:hover { background: #faf8f2; }
+.dashboard-item.active { border-color: var(--blue); background: rgba(2,121,238,0.06); }
+.dashboard-item .dash-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.dashboard-item .dash-meta { font-size: 11px; color: var(--text-muted); }
+.dashboard-view-panel { background: #fff; border: 1px solid var(--border, #e5e0d5); border-radius: 8px; padding: 20px; min-height: 300px; }
+.dash-panel { margin-bottom: 24px; }
+.dash-panel-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+.dash-metric { text-align: center; padding: 30px; }
+.dash-metric .metric-value { font-size: 48px; font-weight: 700; color: var(--blue); }
+.dash-metric .metric-label { font-size: 14px; color: var(--text-muted); margin-top: 6px; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dash-table th { text-align: left; padding: 8px 10px; background: #faf8f2; border-bottom: 2px solid var(--border, #e5e0d5); font-weight: 600; }
+.dash-table td { padding: 8px 10px; border-bottom: 1px solid #f0ece1; }
+
 /* ── Result Chart ── */
 .result-chart {
   background: var(--card-bg);
@@ -937,6 +956,7 @@ body {
         <div class="tab active" data-tab="chat" onclick="switchTab('chat')">Chat</div>
         <div class="tab" data-tab="benchmark" onclick="switchTab('benchmark')">Benchmark</div>
         <div class="tab" data-tab="eval" onclick="switchTab('eval')">Evaluation</div>
+        <div class="tab" data-tab="dashboards" onclick="switchTab('dashboards')">Dashboards</div>
       </div>
 
       <!-- Chat Tab -->
@@ -975,6 +995,27 @@ body {
           <div id="evalContent"><div style="text-align:center;color:var(--text-muted);padding:40px;">Loading evaluation data...</div></div>
         </div>
       </div>
+
+      <!-- Dashboards Tab -->
+      <div class="tab-content" id="tab-dashboards">
+        <div class="dashboards-container">
+          <div class="dashboards-layout">
+            <div class="dashboards-list-panel">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h3 style="margin:0;">Saved Dashboards</h3>
+                <button class="btn btn-secondary" onclick="loadDashboards(true)">Refresh</button>
+              </div>
+              <div id="dashboardsList"><div style="color:var(--text-muted);padding:20px;text-align:center;">Loading...</div></div>
+            </div>
+            <div class="dashboard-view-panel" id="dashboardView">
+              <div style="color:var(--text-muted);padding:60px 20px;text-align:center;">
+                <div style="font-size:28px;margin-bottom:8px;">&#128202;</div>
+                <div>Select a dashboard to view it, or generate one from a query with <code>make_dashboard</code>.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -993,6 +1034,8 @@ let currentSessionId = null;
 let currentModel = 'accounts/fireworks/models/gpt-oss-120b';
 let benchmarkLoaded = false;
 let evalLoaded = false;
+let dashboardsLoaded = false;
+let activeDashboardId = null;
 
 // ── Init ───────────────────────────────────────────────────────────────────
 async function init() {
@@ -1369,6 +1412,7 @@ function switchTab(tab) {
 
   if (tab === 'benchmark' && !benchmarkLoaded) loadBenchmark();
   if (tab === 'eval' && !evalLoaded) loadEval();
+  if (tab === 'dashboards' && !dashboardsLoaded) loadDashboards();
 }
 
 // ── Benchmark Tab ──────────────────────────────────────────────────────────
@@ -1436,6 +1480,117 @@ function renderBenchmark(data) {
   html += '</div></div>';
 
   document.getElementById('benchmarkContent').innerHTML = html;
+}
+
+// ── Dashboards Tab ─────────────────────────────────────────────────────────
+async function loadDashboards(force) {
+  if (force) dashboardsLoaded = false;
+  try {
+    const resp = await fetch('/tessera/dashboards');
+    const data = await resp.json();
+    const list = data.dashboards || [];
+    const container = document.getElementById('dashboardsList');
+    if (!list.length) {
+      container.innerHTML = '<div style="color:var(--text-muted);padding:20px;text-align:center;font-size:13px;">No dashboards yet. Generate one from a query with <code>make_dashboard</code>.</div>';
+      dashboardsLoaded = true;
+      return;
+    }
+    container.innerHTML = list.map(d => `
+      <div class="dashboard-item ${d.id === activeDashboardId ? 'active' : ''}" onclick="loadDashboard('${d.id}')">
+        <div class="dash-title">${escapeHtml(d.title || 'Untitled')}</div>
+        <div class="dash-meta">${d.panel_count || 0} panel(s) &middot; ${escapeHtml(d.created_at || '')}</div>
+      </div>`).join('');
+    dashboardsLoaded = true;
+    // Auto-open the most recent dashboard if none is open.
+    if (!activeDashboardId && list.length) loadDashboard(list[0].id);
+  } catch (e) {
+    document.getElementById('dashboardsList').innerHTML = '<div style="color:#e74c3c;padding:20px;font-size:13px;">Failed to load: ' + e.message + '</div>';
+  }
+}
+
+async function loadDashboard(id) {
+  activeDashboardId = id;
+  document.querySelectorAll('.dashboard-item').forEach(el => el.classList.remove('active'));
+  try {
+    const resp = await fetch('/tessera/dashboard/' + id);
+    const dash = await resp.json();
+    if (dash.detail) { document.getElementById('dashboardView').innerHTML = '<div style="color:#e74c3c;padding:40px;">' + dash.detail + '</div>'; return; }
+    renderDashboard(dash);
+    // refresh active highlight
+    document.querySelectorAll('.dashboard-item').forEach(el => {
+      if (el.textContent.includes(dash.title)) el.classList.add('active');
+    });
+  } catch (e) {
+    document.getElementById('dashboardView').innerHTML = '<div style="color:#e74c3c;padding:40px;">Failed to load dashboard: ' + e.message + '</div>';
+  }
+}
+
+function renderDashboard(dash) {
+  let html = `<h2 style="margin:0 0 4px 0;">${escapeHtml(dash.title || 'Dashboard')}</h2>`;
+  html += `<div style="color:var(--text-muted);font-size:13px;margin-bottom:20px;">${escapeHtml(dash.question || '')} &middot; ${escapeHtml(dash.created_at || '')}</div>`;
+  (dash.panels || []).forEach(p => { html += renderPanel(p); });
+  document.getElementById('dashboardView').innerHTML = html;
+}
+
+function renderPanel(p) {
+  let html = `<div class="dash-panel"><div class="dash-panel-title">${escapeHtml(p.title || '')}</div>`;
+  const d = p.data || {};
+  if (p.type === 'metric') {
+    html += `<div class="dash-metric"><div class="metric-value">${formatVal(d.value)}</div><div class="metric-label">${escapeHtml(d.label || '')}</div></div>`;
+  } else if (p.type === 'bar' || p.type === 'line') {
+    html += renderBarChart(d);
+  } else if (p.type === 'table') {
+    html += renderDashTable(d);
+  } else {
+    html += '<div style="color:var(--text-muted);font-size:13px;">Unsupported panel type: ' + escapeHtml(p.type) + '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderBarChart(d) {
+  const labels = d.labels || [];
+  let series = [];
+  if (d.datasets) series = d.datasets;
+  else if (d.values) series = [{ name: d.value_col || 'value', values: d.values }];
+  if (!labels.length || !series.length) return '<div style="color:var(--text-muted);font-size:13px;">No chart data</div>';
+  const maxVal = Math.max(...series.flatMap(s => s.values.map(v => Math.abs(v || 0))), 1);
+  const colors = ['var(--blue)', 'var(--orange)', 'var(--success)', '#8e44ad'];
+  let html = '<div class="bar-chart">';
+  labels.forEach((label, i) => {
+    series.forEach((s, si) => {
+      const v = (s.values[i] != null) ? s.values[i] : 0;
+      const pct = Math.min((Math.abs(v) / maxVal) * 100, 100);
+      const color = colors[si % colors.length];
+      const name = series.length > 1 ? `<span style="color:var(--text-muted);font-size:11px;"> ${escapeHtml(s.name)}</span>` : '';
+      html += `<div class="bar-row">
+        <div class="bar-label">${escapeHtml(String(label))}${name}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};">${formatVal(v)}</div></div>
+        <div class="bar-value">${formatVal(v)}</div>
+      </div>`;
+    });
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderDashTable(d) {
+  const cols = d.columns || [];
+  const rows = d.rows || [];
+  if (!cols.length) return '<div style="color:var(--text-muted);font-size:13px;">No table data</div>';
+  let html = '<div style="overflow-x:auto;"><table class="dash-table"><thead><tr>' + cols.map(c => `<th>${escapeHtml(c)}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r => {
+    html += '<tr>' + cols.map(c => `<td>${formatVal(r[c])}</td>`).join('') + '</tr>';
+  });
+  html += '</tbody></table></div>';
+  if (d.row_count > rows.length) html += `<div style="color:var(--text-muted);font-size:12px;margin-top:6px;">Showing ${rows.length} of ${d.row_count} rows</div>`;
+  return html;
+}
+
+function formatVal(v) {
+  if (v == null) return '—';
+  if (typeof v === 'number') return Number.isInteger(v) ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return escapeHtml(String(v));
 }
 
 // ── Eval Tab ───────────────────────────────────────────────────────────────

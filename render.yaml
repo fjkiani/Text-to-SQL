@@ -12,5 +12,20 @@ services:
         sync: false
       - key: PYTHON_VERSION
         value: "3.11"
+      # Tessera platform (R2 persistence + optional Arctic endpoint + tenant keys)
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: "tessera-embeddings"
+      - key: WAREHOUSE_DIR
+        value: "/opt/data/warehouse"
+      - key: ARCTIC_LLM_URL
+        sync: false
+      - key: TESSERA_API_KEYS
+        sync: false
     plan: starter
     region: oregon

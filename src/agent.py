@@ -81,7 +81,7 @@ TOOLS = [
 
 def _build_system_prompt(ddl_schema: str, few_shot_enabled: bool = True, dialect: str = "sqlite") -> str:
     """Build the system prompt with injected DDL schema, few-shot examples, and dialect-specific SQL rules."""
-    few_shot_block = build_few_shot_block(max_examples=5) if few_shot_enabled else ""
+    few_shot_block = build_few_shot_block(max_examples=14) if few_shot_enabled else ""
     dialect_rules = get_dialect_specific_prompt(dialect)
     return f"""You are a text-to-SQL agent. You have access to a {dialect.upper()} database with this schema:
 

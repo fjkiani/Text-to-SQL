@@ -123,6 +123,93 @@ FEW_SHOT_EXAMPLES = [
         ),
         "explanation": "Join Customer -> Invoice, group by country, use AVG and ROUND for averages.",
     },
+    # ── Examples added from groundTruth failure analysis (2026-07-31) ─────────
+    # Target the worst clusters: L3/L2 JN (join-path errors), L2/L3 GA (aggregation),
+    # L3 FL (filter via correct join path). Verified against Chinook.
+    {
+        "pattern": "artist_track_count_join",
+        "question": "How many tracks does the artist 'A Cor Do Som' have?",
+        "sql": (
+            "SELECT COUNT(*) AS TrackCount\n"
+            "FROM Track t\n"
+            "JOIN Album al ON t.AlbumId = al.AlbumId\n"
+            "JOIN Artist ar ON al.ArtistId = ar.ArtistId\n"
+            "WHERE ar.Name = 'A Cor Do Som';"
+        ),
+        "explanation": "To count an artist's tracks, join Track -> Album -> Artist and filter on Artist.Name. Do NOT use Track.Composer (it is a free-text field, not the artist) and do NOT guess an ArtistId.",
+    },
+    {
+        "pattern": "artist_track_list_join",
+        "question": "List the track names by the artist 'Gilberto Gil'.",
+        "sql": (
+            "SELECT t.Name AS TrackName\n"
+            "FROM Track t\n"
+            "JOIN Album al ON t.AlbumId = al.AlbumId\n"
+            "JOIN Artist ar ON al.ArtistId = ar.ArtistId\n"
+            "WHERE ar.Name = 'Gilberto Gil'\n"
+            "ORDER BY t.Name;"
+        ),
+        "explanation": "Artist's tracks are reached only through Track -> Album -> Artist. Filter on ar.Name, never on a hard-coded ArtistId.",
+    },
+    {
+        "pattern": "revenue_from_invoice_total",
+        "question": "What is the total revenue for each customer support representative?",
+        "sql": (
+            "SELECT e.FirstName || ' ' || e.LastName AS EmployeeName,\n"
+            "       ROUND(SUM(i.Total), 2) AS TotalRevenue\n"
+            "FROM Employee e\n"
+            "JOIN Customer c ON e.EmployeeId = c.SupportRepId\n"
+            "JOIN Invoice i ON c.CustomerId = i.CustomerId\n"
+            "GROUP BY e.EmployeeId, e.FirstName, e.LastName\n"
+            "ORDER BY TotalRevenue DESC;"
+        ),
+        "explanation": "Revenue per rep: Employee -> Customer (SupportRepId) -> Invoice, summing Invoice.Total. Use Invoice.Total for order-level revenue; only use InvoiceLine.UnitPrice*Quantity when you need line-level detail (e.g. by genre/track).",
+    },
+    {
+        "pattern": "count_distinct_across_join",
+        "question": "Which playlists contain tracks from more than 5 different artists?",
+        "sql": (
+            "SELECT p.Name AS PlaylistName, COUNT(DISTINCT ar.ArtistId) AS ArtistCount\n"
+            "FROM Playlist p\n"
+            "JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId\n"
+            "JOIN Track t ON pt.TrackId = t.TrackId\n"
+            "JOIN Album al ON t.AlbumId = al.AlbumId\n"
+            "JOIN Artist ar ON al.ArtistId = ar.ArtistId\n"
+            "GROUP BY p.PlaylistId, p.Name\n"
+            "HAVING COUNT(DISTINCT ar.ArtistId) > 5\n"
+            "ORDER BY ArtistCount DESC;"
+        ),
+        "explanation": "COUNT(DISTINCT ...) across a multi-join chain (Playlist -> PlaylistTrack -> Track -> Album -> Artist) with HAVING for the threshold. Reach Artist via Album, not directly from Track.",
+    },
+    {
+        "pattern": "avg_track_length_seconds",
+        "question": "What is the average length of 'Latin' tracks in seconds?",
+        "sql": (
+            "SELECT ROUND(AVG(t.Milliseconds) / 1000.0, 1) AS AvgSeconds\n"
+            "FROM Track t\n"
+            "JOIN Genre g ON t.GenreId = g.GenreId\n"
+            "WHERE g.Name = 'Latin';"
+        ),
+        "explanation": "Track length is stored as Milliseconds; divide by 1000.0 for seconds and ROUND to 1 decimal. Join Track -> Genre to filter by genre name.",
+    },
+    {
+        "pattern": "subquery_above_average",
+        "question": "Which customers spent more than the average customer?",
+        "sql": (
+            "WITH CustomerSpending AS (\n"
+            "  SELECT c.CustomerId, c.FirstName || ' ' || c.LastName AS Name,\n"
+            "         SUM(i.Total) AS TotalSpent\n"
+            "  FROM Customer c\n"
+            "  JOIN Invoice i ON c.CustomerId = i.CustomerId\n"
+            "  GROUP BY c.CustomerId, c.FirstName, c.LastName\n"
+            ")\n"
+            "SELECT Name, ROUND(TotalSpent, 2) AS TotalSpent\n"
+            "FROM CustomerSpending\n"
+            "WHERE TotalSpent > (SELECT AVG(TotalSpent) FROM CustomerSpending)\n"
+            "ORDER BY TotalSpent DESC;"
+        ),
+        "explanation": "Compare each customer to the average with a CTE + scalar subquery on the aggregate. Sum Invoice.Total for order-level spending.",
+    },
 ]
 
 

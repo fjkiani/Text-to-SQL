@@ -4,3 +4,12 @@ uvicorn[standard]>=0.24
 pydantic>=2.0
 python-dotenv>=1.0
 pandas>=2.0
+# Tessera platform (ingest/vector/warehouse/dashboard)
+duckdb>=0.10
+faiss-cpu>=1.7.4
+boto3>=1.28
+unstructured[docx,pdf]>=0.12
+python-docx>=1.0
+sentence-transformers==3.3.1
+transformers==4.46.3
+tokenizers<0.21

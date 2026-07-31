@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 from src.utils import load_db, execute_sql
 from src.agent import TextToSQLAgent, DEFAULT_MODEL
+from src.questions import load_questions
 
 
 def _compare_results(generated: list[dict], gold: list[dict]) -> bool:
@@ -59,23 +60,53 @@ def _format_answer_summary(results: list[dict], columns: list[str]) -> str:
     return summary
 
 
+def _write_checkpoint(path, dev_answers, eval_results, trust_flags):
+    """Write incremental progress so a long eval run is observable and resumable.
+
+    Writes {completed, total-so-far, exec, match, per-question results} after each
+    question. Best-effort: a checkpoint write failure never breaks the eval.
+    """
+    if not path:
+        return
+    try:
+        exec_n = sum(1 for r in eval_results if r.get("exec_success"))
+        match_n = sum(1 for r in eval_results if r.get("data_match"))
+        payload = {
+            "completed": len(eval_results),
+            "exec": exec_n,
+            "match": match_n,
+            "exec_rate": round(exec_n / len(eval_results), 3) if eval_results else 0,
+            "match_rate": round(match_n / len(eval_results), 3) if eval_results else 0,
+            "results": eval_results,
+            "trust_flags": trust_flags,
+        }
+        with open(path, "w") as f:
+            json.dump(payload, f, default=str)
+    except Exception:
+        pass
+
+
 def run_eval(
     db_path: str = "data/Chinook.db",
     questions_path: str = "data/dev_questions_with_answers.json",
     answers_output: str = "dev_answers.json",
     report_output: str = "eval_report.json",
     model: str = DEFAULT_MODEL,
+    dataset: str = None,
+    checkpoint_path: str = None,
 ):
     """
-    Run the agent on all 10 dev questions, compare against gold answers,
+    Run the agent on a question set, compare against gold answers,
     and produce dev_answers.json + eval_report.json.
 
     Args:
         db_path: Path to the SQLite database
-        questions_path: Path to dev questions with gold answers
+        questions_path: Path to dev questions with gold answers (used when dataset is None)
         answers_output: Where to write dev_answers.json (required deliverable)
         report_output: Where to write eval_report.json (detailed metrics)
         model: Model ID to use for evaluation
+        dataset: "dev" | "groundtruth" | "all". When set, overrides questions_path
+                 and loads via src.questions.load_questions.
     """
     load_dotenv()
     api_key = os.environ.get("FIREWORKS_API_KEY")
@@ -84,14 +115,22 @@ def run_eval(
         sys.exit(1)
 
     # Load gold questions
-    with open(questions_path) as f:
-        questions = json.load(f)
+    if dataset:
+        questions = load_questions(dataset)
+    else:
+        with open(questions_path) as f:
+            questions = json.load(f)
 
     conn = load_db(db_path)
     agent = TextToSQLAgent(conn, model=model, api_key=api_key)
 
+    # Default checkpoint path alongside the report (incremental progress file).
+    if checkpoint_path is None:
+        checkpoint_path = report_output.replace(".json", "") + "_checkpoint.json"
+
     dev_answers = {}
     eval_results = []
+    trust_flags = {}  # question_id -> trust report (for trust_monitor)
     exec_count = 0
     match_count = 0
     latencies = []
@@ -128,6 +167,10 @@ def run_eval(
             data_match = _compare_results(resp.results, gold_results) if resp.success else False
             exec_ok = resp.success
 
+            # Capture trust report for the trust monitor
+            if getattr(resp, "trust", None):
+                trust_flags[qid] = resp.trust
+
             if exec_ok:
                 exec_count += 1
             if data_match:
@@ -145,6 +188,9 @@ def run_eval(
                 "question_id": qid,
                 "question": question,
                 "tier": tier,
+                "join_complexity": q.get("join_complexity"),
+                "failure_modes": q.get("failure_modes") or [],
+                "synthetic": q.get("synthetic"),
                 "generated_sql": resp.sql,
                 "gold_sql": gold_sql,
                 "exec_success": exec_ok,
@@ -160,6 +206,10 @@ def run_eval(
             status = "MATCH" if data_match else ("EXEC_OK" if exec_ok else "FAIL")
             print(f"{status} ({resp.latency:.2f}s, {resp.attempts} attempt(s))")
 
+            # Incremental checkpoint: write progress after every question so the
+            # run is observable and resumable (survives a crash without losing all work).
+            _write_checkpoint(checkpoint_path, dev_answers, eval_results, trust_flags)
+
         except Exception as e:
             latencies.append(0)
             dev_answers[qid] = {
@@ -170,6 +220,9 @@ def run_eval(
                 "question_id": qid,
                 "question": question,
                 "tier": tier,
+                "join_complexity": q.get("join_complexity"),
+                "failure_modes": q.get("failure_modes") or [],
+                "synthetic": q.get("synthetic"),
                 "generated_sql": "",
                 "gold_sql": gold_sql,
                 "exec_success": False,
@@ -194,10 +247,38 @@ def run_eval(
         json.dump(dev_answers, f, indent=2, default=str)
     print(f"\ndev_answers.json written to {answers_output}")
 
+    # Write trust_flags.json (input to trust_monitor)
+    trust_out = report_output.replace(".json", "") + "_trust_flags.json"
+    with open(trust_out, "w") as f:
+        json.dump(trust_flags, f, indent=2, default=str)
+    print(f"trust flags written to {trust_out} ({len(trust_flags)} questions)")
+
+    # Breakdowns by tier and join_complexity
+    def _breakdown(key):
+        groups = {}
+        for r in eval_results:
+            k = r.get(key)
+            if k is None:
+                continue
+            g = groups.setdefault(k, {"total": 0, "exec": 0, "match": 0})
+            g["total"] += 1
+            g["exec"] += 1 if r["exec_success"] else 0
+            g["match"] += 1 if r["data_match"] else 0
+        return {
+            str(k): {
+                "total": v["total"],
+                "exec_rate": f"{v['exec']}/{v['total']}",
+                "match_rate": f"{v['match']}/{v['total']}",
+                "match_pct": round(100 * v["match"] / v["total"], 1) if v["total"] else 0,
+            }
+            for k, v in sorted(groups.items(), key=lambda kv: str(kv[0]))
+        }
+
     # Write eval_report.json
     from datetime import datetime, timezone
     report = {
         "model": model,
+        "dataset": dataset or "custom",
         "run_at": datetime.now(timezone.utc).isoformat(),  # embed timestamp of the actual run
         "summary": {
             "total_questions": len(questions),
@@ -207,6 +288,8 @@ def run_eval(
             "match_rate": f"{match_count}/{len(questions)}",
             "avg_latency": round(avg, 3),
             "p50_latency": round(p50, 3),
+            "by_tier": _breakdown("tier"),
+            "by_join_complexity": _breakdown("join_complexity"),
         },
         "questions": eval_results,
     }
@@ -249,12 +332,15 @@ def main():
     parser.add_argument("--db", default="data/Chinook.db", help="Database path")
     parser.add_argument("--answers-output", default="dev_answers.json", help="dev_answers.json path")
     parser.add_argument("--report-output", default="eval_report.json", help="eval_report.json path")
+    parser.add_argument("--dataset", default=None, choices=["dev", "groundtruth", "all"],
+                        help="Question set to load via src.questions (overrides default questions_path)")
     args = parser.parse_args()
     run_eval(
         db_path=args.db,
         model=args.model,
         answers_output=args.answers_output,
         report_output=args.report_output,
+        dataset=args.dataset,
     )
 
 

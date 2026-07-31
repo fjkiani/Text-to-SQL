@@ -1,0 +1,7090 @@
+[
+  {
+    "id": "live_001",
+    "question": "How many tracks are in the 'Rock' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId = g.GenreId WHERE g.Name = 'Rock'",
+    "gold_answer": "1,297 tracks",
+    "expected_result": [
+      {
+        "TrackCount": 1297
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": false
+  },
+  {
+    "id": "live_002",
+    "question": "What is the total revenue for each customer support representative?",
+    "tier": 2,
+    "gold_sql": "SELECT e.FirstName || ' ' || e.LastName as EmployeeName, SUM(i.Total) as TotalRevenue FROM Employee e JOIN Customer c ON e.EmployeeId = c.SupportRepId JOIN Invoice i ON c.CustomerId = i.CustomerId GROUP BY e.EmployeeId ORDER BY TotalRevenue DESC",
+    "gold_answer": "Jane Peacock ($1,731.51), Margaret Park ($1,584.00), Steve Johnson ($1,393.92)",
+    "expected_result": [
+      {
+        "EmployeeName": "Jane Peacock",
+        "TotalRevenue": 1731.51
+      },
+      {
+        "EmployeeName": "Margaret Park",
+        "TotalRevenue": 1584.0
+      },
+      {
+        "EmployeeName": "Steve Johnson",
+        "TotalRevenue": 1393.92
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": false
+  },
+  {
+    "id": "live_003",
+    "question": "Which album has the most tracks, and how many tracks does it have?",
+    "tier": 2,
+    "gold_sql": "SELECT al.Title, COUNT(t.TrackId) as TrackCount FROM Album al JOIN Track t ON al.AlbumId = t.AlbumId GROUP BY al.AlbumId ORDER BY TrackCount DESC LIMIT 1",
+    "gold_answer": "Greatest Hits (57 tracks)",
+    "expected_result": [
+      {
+        "Title": "Greatest Hits",
+        "TrackCount": 57
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": false
+  },
+  {
+    "id": "live_004",
+    "question": "For each genre, what is the average track length in milliseconds?",
+    "tier": 2,
+    "gold_sql": "SELECT g.Name, AVG(t.Milliseconds) as AvgLength FROM Genre g JOIN Track t ON g.GenreId = t.GenreId GROUP BY g.GenreId ORDER BY AvgLength DESC",
+    "gold_answer": "Various genres with average lengths ranging from ~200,000ms to ~400,000ms",
+    "expected_result": [
+      {
+        "Name": "TV Shows",
+        "AvgLength": 330391.0
+      },
+      {
+        "Name": "Sci Fi & Fantasy",
+        "AvgLength": 312666.0
+      },
+      {
+        "Name": "Drama",
+        "AvgLength": 311528.0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": false
+  },
+  {
+    "id": "live_005",
+    "question": "Which artists have no albums in the database?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar LEFT JOIN Album al ON ar.ArtistId = al.ArtistId WHERE al.AlbumId IS NULL",
+    "gold_answer": "Several artists have no albums (e.g., Milton Nascimento, Antônio Carlos Jobim, Azymuth)",
+    "expected_result": [
+      {
+        "Name": "Milton Nascimento"
+      },
+      {
+        "Name": "Antônio Carlos Jobim"
+      },
+      {
+        "Name": "Azymuth"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "HL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": false
+  },
+  {
+    "id": "live_006",
+    "question": "What is the total revenue per month in 2021, and which month had the highest revenue?",
+    "tier": 3,
+    "gold_sql": "SELECT strftime('%m', InvoiceDate) as Month, SUM(Total) as MonthlyRevenue FROM Invoice WHERE strftime('%Y', InvoiceDate) = '2021' GROUP BY Month ORDER BY MonthlyRevenue DESC",
+    "gold_answer": "Month 05 (May) had the highest revenue at $87.13",
+    "expected_result": [
+      {
+        "Month": "05",
+        "MonthlyRevenue": 87.13
+      },
+      {
+        "Month": "03",
+        "MonthlyRevenue": 82.17
+      },
+      {
+        "Month": "04",
+        "MonthlyRevenue": 76.23
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": false
+  },
+  {
+    "id": "live_007",
+    "question": "How does the average invoice total differ between customers from the USA and customers from Canada?",
+    "tier": 2,
+    "gold_sql": "SELECT BillingCountry, AVG(Total) as AvgInvoice FROM Invoice WHERE BillingCountry IN ('USA', 'Canada') GROUP BY BillingCountry",
+    "gold_answer": "USA ($5.75), Canada ($5.43)",
+    "expected_result": [
+      {
+        "BillingCountry": "USA",
+        "AvgInvoice": 5.75
+      },
+      {
+        "BillingCountry": "Canada",
+        "AvgInvoice": 5.43
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": false
+  },
+  {
+    "id": "live_008",
+    "question": "Which playlist has the most unique tracks, and how many?",
+    "tier": 3,
+    "gold_sql": "SELECT p.Name, COUNT(DISTINCT pt.TrackId) as UniqueTrackCount FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId GROUP BY p.PlaylistId ORDER BY UniqueTrackCount DESC LIMIT 1",
+    "gold_answer": "Music (3,290 unique tracks)",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "UniqueTrackCount": 3290
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": false
+  },
+  {
+    "id": "live_009",
+    "question": "Which artists have tracks in the 'Jazz' genre but no tracks in the 'Rock' genre?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId = g.GenreId JOIN Album al ON t.AlbumId = al.AlbumId WHERE al.ArtistId = ar.ArtistId AND g.Name = 'Jazz') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId = g2.GenreId JOIN Album al2 ON t2.AlbumId = al2.AlbumId WHERE al2.ArtistId = ar.ArtistId AND g2.Name = 'Rock')",
+    "gold_answer": "Antônio Carlos Jobim, Billy Cobham, Gilberto Gil, Spyro Gyra, Miles Davis, Gene Krupa, Dennis Chambers, Incognito, Aisha Duo, Aaron Goldberg",
+    "expected_result": [
+      {
+        "Name": "Antônio Carlos Jobim"
+      },
+      {
+        "Name": "Billy Cobham"
+      },
+      {
+        "Name": "Gilberto Gil"
+      },
+      {
+        "Name": "Spyro Gyra"
+      },
+      {
+        "Name": "Miles Davis"
+      },
+      {
+        "Name": "Gene Krupa"
+      },
+      {
+        "Name": "Dennis Chambers"
+      },
+      {
+        "Name": "Incognito"
+      },
+      {
+        "Name": "Aisha Duo"
+      },
+      {
+        "Name": "Aaron Goldberg"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": false
+  },
+  {
+    "id": "live_010",
+    "question": "For each customer, list their top 3 genres by total spending",
+    "tier": 3,
+    "gold_sql": "WITH CustomerGenreSpending AS (SELECT c.CustomerId, c.FirstName || ' ' || c.LastName as CustomerName, g.Name as Genre, SUM(il.UnitPrice * il.Quantity) as TotalSpent, ROW_NUMBER() OVER (PARTITION BY c.CustomerId ORDER BY SUM(il.UnitPrice * il.Quantity) DESC) as rn FROM Customer c JOIN Invoice i ON c.CustomerId = i.CustomerId JOIN InvoiceLine il ON i.InvoiceId = il.InvoiceId JOIN Track t ON il.TrackId = t.TrackId JOIN Genre g ON t.GenreId = g.GenreId GROUP BY c.CustomerId, g.GenreId) SELECT CustomerName, Genre, TotalSpent FROM CustomerGenreSpending WHERE rn <= 3 ORDER BY CustomerName, TotalSpent DESC",
+    "gold_answer": "Per-customer top 3 genres by spending (e.g., Aaron Mitchell: Latin $13.86, Rock $8.91, Metal $6.93)",
+    "expected_result": [
+      {
+        "CustomerName": "Aaron Mitchell",
+        "Genre": "Latin",
+        "TotalSpent": 13.86
+      },
+      {
+        "CustomerName": "Aaron Mitchell",
+        "Genre": "Rock",
+        "TotalSpent": 8.91
+      },
+      {
+        "CustomerName": "Aaron Mitchell",
+        "Genre": "Metal",
+        "TotalSpent": 6.93
+      },
+      {
+        "CustomerName": "Alexandre Rocha",
+        "Genre": "Latin",
+        "TotalSpent": 15.84
+      },
+      {
+        "CustomerName": "Alexandre Rocha",
+        "Genre": "Rock",
+        "TotalSpent": 10.89
+      },
+      {
+        "CustomerName": "Alexandre Rocha",
+        "Genre": "Alternative & Punk",
+        "TotalSpent": 3.96
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "GA"
+    ],
+    "join_complexity": "L5",
+    "synthetic": false
+  },
+  {
+    "id": "live_011",
+    "question": "Which playlists contain tracks from more than 5 different artists?",
+    "tier": 2,
+    "gold_sql": "SELECT p.Name, COUNT(DISTINCT ar.ArtistId) as ArtistCount FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId = pt.PlaylistId JOIN Track t ON pt.TrackId = t.TrackId JOIN Album al ON t.AlbumId = al.AlbumId JOIN Artist ar ON al.ArtistId = ar.ArtistId GROUP BY p.PlaylistId, p.Name HAVING ArtistCount > 5 ORDER BY ArtistCount DESC",
+    "gold_answer": "Music (198), 90's Music (109), Classical (67)",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "ArtistCount": 198
+      },
+      {
+        "Name": "90’s Music",
+        "ArtistCount": 109
+      },
+      {
+        "Name": "Classical",
+        "ArtistCount": 67
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": false
+  },
+  {
+    "id": "live_012",
+    "question": "Total revenue by artist, including artists with $0 revenue",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name as ArtistName, COALESCE(SUM(il.UnitPrice * il.Quantity), 0) as TotalRevenue FROM Artist ar LEFT JOIN Album al ON ar.ArtistId = al.ArtistId LEFT JOIN Track t ON al.AlbumId = t.AlbumId LEFT JOIN InvoiceLine il ON t.TrackId = il.TrackId GROUP BY ar.ArtistId, ar.Name ORDER BY TotalRevenue DESC",
+    "gold_answer": "Iron Maiden ($138.60), U2 ($105.93), Metallica ($90.09)",
+    "expected_result": [
+      {
+        "ArtistName": "Iron Maiden",
+        "TotalRevenue": 138.6
+      },
+      {
+        "ArtistName": "U2",
+        "TotalRevenue": 105.93
+      },
+      {
+        "ArtistName": "Metallica",
+        "TotalRevenue": 90.09
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NH",
+      "GA"
+    ],
+    "join_complexity": "L4",
+    "synthetic": false
+  },
+  {
+    "id": "live_013",
+    "question": "Which customers have purchased tracks from every genre that 'AC/DC' has tracks in?",
+    "tier": 3,
+    "gold_sql": "WITH acdc_genres AS (SELECT DISTINCT g.GenreId FROM Genre g JOIN Track t ON g.GenreId = t.GenreId JOIN Album al ON t.AlbumId = al.AlbumId JOIN Artist ar ON al.ArtistId = ar.ArtistId WHERE ar.Name = 'AC/DC'), customer_genres AS (SELECT c.CustomerId, c.FirstName || ' ' || c.LastName as CustomerName, g.GenreId FROM Customer c JOIN Invoice i ON c.CustomerId = i.CustomerId JOIN InvoiceLine il ON i.InvoiceId = il.InvoiceId JOIN Track t ON il.TrackId = t.TrackId JOIN Genre g ON t.GenreId = g.GenreId GROUP BY c.CustomerId, g.GenreId) SELECT cg.CustomerName FROM customer_genres cg JOIN acdc_genres ag ON cg.GenreId = ag.GenreId GROUP BY cg.CustomerId, cg.CustomerName HAVING COUNT(DISTINCT cg.GenreId) = (SELECT COUNT(*) FROM acdc_genres)",
+    "gold_answer": "Luís Gonçalves, Leonie Köhler, François Tremblay, Bjørn Hansen",
+    "expected_result": [
+      {
+        "CustomerName": "Luís Gonçalves"
+      },
+      {
+        "CustomerName": "Leonie Köhler"
+      },
+      {
+        "CustomerName": "François Tremblay"
+      },
+      {
+        "CustomerName": "Bjørn Hansen"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L6",
+    "synthetic": false
+  },
+  {
+    "id": "live_014",
+    "question": "What is the month-over-month revenue growth rate for 2021?",
+    "tier": 3,
+    "gold_sql": "WITH monthly AS (SELECT strftime('%Y-%m', InvoiceDate) as Month, SUM(Total) as Revenue FROM Invoice WHERE strftime('%Y', InvoiceDate) = '2021' GROUP BY Month) SELECT Month, Revenue, CASE WHEN LAG(Revenue) OVER (ORDER BY Month) IS NULL THEN NULL WHEN LAG(Revenue) OVER (ORDER BY Month) = 0 THEN NULL ELSE ROUND(((Revenue - LAG(Revenue) OVER (ORDER BY Month)) * 100.0 / LAG(Revenue) OVER (ORDER BY Month)), 2) END as GrowthRate FROM monthly ORDER BY Month",
+    "gold_answer": "Jan: 35.64 (N/A), Feb: 37.62 (+5.56%)",
+    "expected_result": [
+      {
+        "Month": "2021-01",
+        "Revenue": 35.64,
+        "GrowthRate": null
+      },
+      {
+        "Month": "2021-02",
+        "Revenue": 37.62,
+        "GrowthRate": 5.56
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "NL",
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L4",
+    "synthetic": false
+  },
+  {
+    "id": "live_015",
+    "question": "Which support representative has the highest average invoice value for customers in their territory?",
+    "tier": 2,
+    "gold_sql": "SELECT e.FirstName || ' ' || e.LastName as EmployeeName, AVG(i.Total) as AvgInvoiceValue FROM Employee e JOIN Customer c ON e.EmployeeId = c.SupportRepId JOIN Invoice i ON c.CustomerId = i.CustomerId GROUP BY e.EmployeeId, e.FirstName, e.LastName ORDER BY AvgInvoiceValue DESC LIMIT 1",
+    "gold_answer": "Steve Johnson (avg $5.72)",
+    "expected_result": [
+      {
+        "EmployeeName": "Steve Johnson",
+        "AvgInvoiceValue": 5.7155555555555555
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": false
+  },
+  {
+    "id": "live_016",
+    "question": "Which tracks appear in more playlists than the average track?",
+    "tier": 3,
+    "gold_sql": "WITH track_playlist_counts AS (SELECT t.TrackId, t.Name, COUNT(DISTINCT pt.PlaylistId) as PlaylistCount FROM Track t LEFT JOIN PlaylistTrack pt ON t.TrackId = pt.TrackId GROUP BY t.TrackId, t.Name), avg_playlists AS (SELECT AVG(PlaylistCount) as AvgCount FROM track_playlist_counts) SELECT tpc.Name, tpc.PlaylistCount FROM track_playlist_counts tpc, avg_playlists ap WHERE tpc.PlaylistCount > ap.AvgCount ORDER BY tpc.PlaylistCount DESC",
+    "gold_answer": "Classical tracks appearing in 5 playlists each",
+    "expected_result": [
+      {
+        "Name": "Intoitus: Adorate Deum",
+        "PlaylistCount": 5
+      },
+      {
+        "Name": "Miserere mei, Deus",
+        "PlaylistCount": 5
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "GA"
+    ],
+    "join_complexity": "L4",
+    "synthetic": false
+  },
+  {
+    "question": "What is the average length of 'Classical' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Classical'",
+    "gold_answer": "[{\"AvgSeconds\": 293.9}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 293.9
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_017"
+  },
+  {
+    "question": "How many albums does 'Ed Motta' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Ed Motta'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_018"
+  },
+  {
+    "question": "How many tracks does 'O Rappa' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='O Rappa'",
+    "gold_answer": "[{\"C\": 17}]",
+    "expected_result": [
+      {
+        "C": 17
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_019"
+  },
+  {
+    "question": "How many tracks does 'Black Label Society' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Black Label Society'",
+    "gold_answer": "[{\"C\": 18}]",
+    "expected_result": [
+      {
+        "C": 18
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_020"
+  },
+  {
+    "question": "How many tracks use the 'AAC audio file' media type?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN MediaType mt ON t.MediaTypeId=mt.MediaTypeId WHERE mt.Name='AAC audio file'",
+    "gold_answer": "[{\"C\": 11}]",
+    "expected_result": [
+      {
+        "C": 11
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_021"
+  },
+  {
+    "question": "How many albums does 'Hermeto Pascoal' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Hermeto Pascoal'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_022"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Hungary'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Hungary'",
+    "gold_answer": "[{\"R\": 45.62}]",
+    "expected_result": [
+      {
+        "R": 45.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_023"
+  },
+  {
+    "question": "What is the average invoice total in 'Poland'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Poland'",
+    "gold_answer": "[{\"A\": 5.37}]",
+    "expected_result": [
+      {
+        "A": 5.37
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_024"
+  },
+  {
+    "question": "How many tracks are in the 'Classical' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Classical'",
+    "gold_answer": "[{\"TrackCount\": 74}]",
+    "expected_result": [
+      {
+        "TrackCount": 74
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_025"
+  },
+  {
+    "question": "What is the average invoice total in 'Sweden'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Sweden'",
+    "gold_answer": "[{\"A\": 5.52}]",
+    "expected_result": [
+      {
+        "A": 5.52
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_026"
+  },
+  {
+    "question": "Which month in 2025 had the most invoices?",
+    "tier": 2,
+    "gold_sql": "SELECT strftime('%m',InvoiceDate) as Month, COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2025' GROUP BY Month ORDER BY C DESC LIMIT 1",
+    "gold_answer": "[{\"Month\": \"12\", \"C\": 7}]",
+    "expected_result": [
+      {
+        "Month": "12",
+        "C": 7
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_027"
+  },
+  {
+    "question": "What is the average length of 'Latin' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Latin'",
+    "gold_answer": "[{\"AvgSeconds\": 232.9}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 232.9
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_028"
+  },
+  {
+    "question": "What is the average invoice total in 'USA'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='USA'",
+    "gold_answer": "[{\"A\": 5.75}]",
+    "expected_result": [
+      {
+        "A": 5.75
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_029"
+  },
+  {
+    "question": "How many tracks are in the 'Bossa Nova' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Bossa Nova'",
+    "gold_answer": "[{\"TrackCount\": 15}]",
+    "expected_result": [
+      {
+        "TrackCount": 15
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_030"
+  },
+  {
+    "question": "Which artist generated the most revenue?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name,ROUND(SUM(il.UnitPrice*il.Quantity),2) as R FROM Artist ar JOIN Album al ON ar.ArtistId=al.ArtistId JOIN Track t ON al.AlbumId=t.AlbumId JOIN InvoiceLine il ON t.TrackId=il.TrackId GROUP BY ar.ArtistId ORDER BY R DESC LIMIT 1",
+    "gold_answer": "[{\"Name\": \"Iron Maiden\", \"R\": 138.6}]",
+    "expected_result": [
+      {
+        "Name": "Iron Maiden",
+        "R": 138.6
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_031"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Netherlands'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Netherlands'",
+    "gold_answer": "[{\"R\": 40.62}]",
+    "expected_result": [
+      {
+        "R": 40.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_032"
+  },
+  {
+    "question": "Which month in 2023 had the most invoices?",
+    "tier": 2,
+    "gold_sql": "SELECT strftime('%m',InvoiceDate) as Month, COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2023' GROUP BY Month ORDER BY C DESC LIMIT 1",
+    "gold_answer": "[{\"Month\": \"12\", \"C\": 7}]",
+    "expected_result": [
+      {
+        "Month": "12",
+        "C": 7
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_033"
+  },
+  {
+    "question": "What is the average invoice total in 'Ireland'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Ireland'",
+    "gold_answer": "[{\"A\": 6.52}]",
+    "expected_result": [
+      {
+        "A": 6.52
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_034"
+  },
+  {
+    "question": "How many albums does 'Os Mutantes' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Os Mutantes'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_035"
+  },
+  {
+    "question": "How many tracks does 'A Cor Do Som' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='A Cor Do Som'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_036"
+  },
+  {
+    "question": "What is the average invoice total in 'Norway'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Norway'",
+    "gold_answer": "[{\"A\": 5.66}]",
+    "expected_result": [
+      {
+        "A": 5.66
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_037"
+  },
+  {
+    "question": "How many tracks are in the 'Metal' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Metal'",
+    "gold_answer": "[{\"TrackCount\": 374}]",
+    "expected_result": [
+      {
+        "TrackCount": 374
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_038"
+  },
+  {
+    "question": "What is the total revenue generated by 'Blues' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Blues'",
+    "gold_answer": "[{\"Revenue\": 60.39}]",
+    "expected_result": [
+      {
+        "Revenue": 60.39
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_039"
+  },
+  {
+    "question": "How many tracks does 'Os Mutantes' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Os Mutantes'",
+    "gold_answer": "[{\"C\": 14}]",
+    "expected_result": [
+      {
+        "C": 14
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_040"
+  },
+  {
+    "question": "What is the total revenue generated by 'Metal' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Metal'",
+    "gold_answer": "[{\"Revenue\": 261.36}]",
+    "expected_result": [
+      {
+        "Revenue": 261.36
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_041"
+  },
+  {
+    "question": "What is the average invoice total in 'Australia'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Australia'",
+    "gold_answer": "[{\"A\": 5.37}]",
+    "expected_result": [
+      {
+        "A": 5.37
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_042"
+  },
+  {
+    "question": "How many tracks are in the 'Comedy' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Comedy'",
+    "gold_answer": "[{\"TrackCount\": 17}]",
+    "expected_result": [
+      {
+        "TrackCount": 17
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_043"
+  },
+  {
+    "question": "How many albums does 'Alice In Chains' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Alice In Chains'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_044"
+  },
+  {
+    "question": "Which customers spent more than the average customer?",
+    "tier": 3,
+    "gold_sql": "WITH c AS (SELECT c.CustomerId,c.FirstName||' '||c.LastName as Name,SUM(i.Total) as S FROM Customer c JOIN Invoice i ON c.CustomerId=i.CustomerId GROUP BY c.CustomerId), a AS (SELECT AVG(S) as Avg FROM c) SELECT Name,ROUND(S,2) as S FROM c,a WHERE c.S>a.Avg ORDER BY S DESC LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Helena Holý\", \"S\": 49.62}, {\"Name\": \"Richard Cunningham\", \"S\": 47.62}, {\"Name\": \"Luis Rojas\", \"S\": 46.62}]",
+    "expected_result": [
+      {
+        "Name": "Helena Holý",
+        "S": 49.62
+      },
+      {
+        "Name": "Richard Cunningham",
+        "S": 47.62
+      },
+      {
+        "Name": "Luis Rojas",
+        "S": 46.62
+      },
+      {
+        "Name": "Ladislav Kovács",
+        "S": 45.62
+      },
+      {
+        "Name": "Hugh O'Reilly",
+        "S": 45.62
+      },
+      {
+        "Name": "Frank Ralston",
+        "S": 43.62
+      },
+      {
+        "Name": "Julia Barnett",
+        "S": 43.62
+      },
+      {
+        "Name": "Fynn Zimmermann",
+        "S": 43.62
+      },
+      {
+        "Name": "Astrid Gruber",
+        "S": 42.62
+      },
+      {
+        "Name": "Victor Stevens",
+        "S": 42.62
+      },
+      {
+        "Name": "Terhi Hämäläinen",
+        "S": 41.62
+      },
+      {
+        "Name": "František Wichterlová",
+        "S": 40.62
+      },
+      {
+        "Name": "Isabelle Mercier",
+        "S": 40.62
+      },
+      {
+        "Name": "Johannes Van der Berg",
+        "S": 40.62
+      },
+      {
+        "Name": "Luís Gonçalves",
+        "S": 39.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_045"
+  },
+  {
+    "question": "What is the average invoice total in 'Czech Republic'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Czech Republic'",
+    "gold_answer": "[{\"A\": 6.45}]",
+    "expected_result": [
+      {
+        "A": 6.45
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_046"
+  },
+  {
+    "question": "How many albums does 'Audioslave' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Audioslave'",
+    "gold_answer": "[{\"C\": 3}]",
+    "expected_result": [
+      {
+        "C": 3
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_047"
+  },
+  {
+    "question": "What is the average invoice total in 'Italy'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Italy'",
+    "gold_answer": "[{\"A\": 5.37}]",
+    "expected_result": [
+      {
+        "A": 5.37
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_048"
+  },
+  {
+    "question": "How many tracks are in each playlist?",
+    "tier": 2,
+    "gold_sql": "SELECT p.Name,COUNT(pt.TrackId) as C FROM Playlist p LEFT JOIN PlaylistTrack pt ON p.PlaylistId=pt.PlaylistId GROUP BY p.PlaylistId ORDER BY C DESC",
+    "gold_answer": "[{\"Name\": \"Music\", \"C\": 3290}, {\"Name\": \"Music\", \"C\": 3290}, {\"Name\": \"90’s Music\", \"C\": 1477}]",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "C": 3290
+      },
+      {
+        "Name": "Music",
+        "C": 3290
+      },
+      {
+        "Name": "90’s Music",
+        "C": 1477
+      },
+      {
+        "Name": "TV Shows",
+        "C": 213
+      },
+      {
+        "Name": "TV Shows",
+        "C": 213
+      },
+      {
+        "Name": "Classical",
+        "C": 75
+      },
+      {
+        "Name": "Brazilian Music",
+        "C": 39
+      },
+      {
+        "Name": "Heavy Metal Classic",
+        "C": 26
+      },
+      {
+        "Name": "Classical 101 - Deep Cuts",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Next Steps",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - The Basics",
+        "C": 25
+      },
+      {
+        "Name": "Grunge",
+        "C": 15
+      },
+      {
+        "Name": "Music Videos",
+        "C": 1
+      },
+      {
+        "Name": "On-The-Go 1",
+        "C": 1
+      },
+      {
+        "Name": "Movies",
+        "C": 0
+      },
+      {
+        "Name": "Audiobooks",
+        "C": 0
+      },
+      {
+        "Name": "Audiobooks",
+        "C": 0
+      },
+      {
+        "Name": "Movies",
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA",
+      "HL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_049"
+  },
+  {
+    "question": "How many albums does 'Gilberto Gil' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Gilberto Gil'",
+    "gold_answer": "[{\"C\": 3}]",
+    "expected_result": [
+      {
+        "C": 3
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_050"
+  },
+  {
+    "question": "How many tracks are in the 'Blues' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Blues'",
+    "gold_answer": "[{\"TrackCount\": 81}]",
+    "expected_result": [
+      {
+        "TrackCount": 81
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_051"
+  },
+  {
+    "question": "What is the total revenue from customers in 'India'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='India'",
+    "gold_answer": "[{\"R\": 75.26}]",
+    "expected_result": [
+      {
+        "R": 75.26
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_052"
+  },
+  {
+    "question": "How many tracks does 'Luiz Melodia' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Luiz Melodia'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_053"
+  },
+  {
+    "question": "How many tracks does 'Led Zeppelin' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Led Zeppelin'",
+    "gold_answer": "[{\"C\": 114}]",
+    "expected_result": [
+      {
+        "C": 114
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_054"
+  },
+  {
+    "question": "How many customers are located in 'Sweden'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Sweden'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_055"
+  },
+  {
+    "question": "What was the total revenue in 2025?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE strftime('%Y',InvoiceDate)='2025'",
+    "gold_answer": "[{\"R\": 450.58}]",
+    "expected_result": [
+      {
+        "R": 450.58
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_056"
+  },
+  {
+    "question": "Which artists have 'Alternative' tracks but no 'World' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Alternative') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='World') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Audioslave\"}, {\"Name\": \"Cake\"}, {\"Name\": \"Temple of the Dog\"}]",
+    "expected_result": [
+      {
+        "Name": "Audioslave"
+      },
+      {
+        "Name": "Cake"
+      },
+      {
+        "Name": "Temple of the Dog"
+      },
+      {
+        "Name": "Chris Cornell"
+      },
+      {
+        "Name": "Calexico"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_057"
+  },
+  {
+    "question": "Month-over-month revenue change in 2021",
+    "tier": 3,
+    "gold_sql": "WITH m AS (SELECT strftime('%Y-%m',InvoiceDate) as Month,SUM(Total) as R FROM Invoice WHERE strftime('%Y',InvoiceDate)='2021' GROUP BY Month) SELECT Month,ROUND(R,2) as R,ROUND(R-LAG(R) OVER (ORDER BY Month),2) as Change FROM m ORDER BY Month",
+    "gold_answer": "[{\"Month\": \"2021-01\", \"R\": 35.64, \"Change\": null}, {\"Month\": \"2021-02\", \"R\": 37.62, \"Change\": 1.98}, {\"Month\": \"2021-03\", \"R\": 37.62, \"Change\": 0.0}]",
+    "expected_result": [
+      {
+        "Month": "2021-01",
+        "R": 35.64,
+        "Change": null
+      },
+      {
+        "Month": "2021-02",
+        "R": 37.62,
+        "Change": 1.98
+      },
+      {
+        "Month": "2021-03",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-04",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-05",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-06",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-07",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-08",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-09",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-10",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-11",
+        "R": 37.62,
+        "Change": 0.0
+      },
+      {
+        "Month": "2021-12",
+        "R": 37.62,
+        "Change": 0.0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "NL",
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_058"
+  },
+  {
+    "question": "How many tracks are in the 'Alternative & Punk' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Alternative & Punk'",
+    "gold_answer": "[{\"TrackCount\": 332}]",
+    "expected_result": [
+      {
+        "TrackCount": 332
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_059"
+  },
+  {
+    "question": "What is the average length of 'Alternative & Punk' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Alternative & Punk'",
+    "gold_answer": "[{\"AvgSeconds\": 234.4}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 234.4
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_060"
+  },
+  {
+    "question": "How many tracks does 'Accept' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Accept'",
+    "gold_answer": "[{\"C\": 4}]",
+    "expected_result": [
+      {
+        "C": 4
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_061"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Portugal'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Portugal'",
+    "gold_answer": "[{\"R\": 77.24}]",
+    "expected_result": [
+      {
+        "R": 77.24
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_062"
+  },
+  {
+    "question": "How many albums does 'Black Label Society' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Black Label Society'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_063"
+  },
+  {
+    "question": "How many albums does 'Kid Abelha' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Kid Abelha'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_064"
+  },
+  {
+    "question": "What is the total revenue generated by 'TV Shows' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='TV Shows'",
+    "gold_answer": "[{\"Revenue\": 93.53}]",
+    "expected_result": [
+      {
+        "Revenue": 93.53
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_065"
+  },
+  {
+    "question": "How many invoices were issued in 2024?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2024'",
+    "gold_answer": "[{\"C\": 83}]",
+    "expected_result": [
+      {
+        "C": 83
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_066"
+  },
+  {
+    "question": "How many albums does 'Santana' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Santana'",
+    "gold_answer": "[{\"C\": 3}]",
+    "expected_result": [
+      {
+        "C": 3
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_067"
+  },
+  {
+    "question": "What is the average length of 'Easy Listening' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Easy Listening'",
+    "gold_answer": "[{\"AvgSeconds\": 189.2}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 189.2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_068"
+  },
+  {
+    "question": "How many customers are located in 'Hungary'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Hungary'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_069"
+  },
+  {
+    "question": "What is the average invoice total in 'India'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='India'",
+    "gold_answer": "[{\"A\": 5.79}]",
+    "expected_result": [
+      {
+        "A": 5.79
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_070"
+  },
+  {
+    "question": "How many customers are located in 'Denmark'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Denmark'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_071"
+  },
+  {
+    "question": "How many tracks use the 'Protected MPEG-4 video file' media type?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN MediaType mt ON t.MediaTypeId=mt.MediaTypeId WHERE mt.Name='Protected MPEG-4 video file'",
+    "gold_answer": "[{\"C\": 214}]",
+    "expected_result": [
+      {
+        "C": 214
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_072"
+  },
+  {
+    "question": "How many albums does 'David Coverdale' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='David Coverdale'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_073"
+  },
+  {
+    "question": "How many albums does 'Queen' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Queen'",
+    "gold_answer": "[{\"C\": 3}]",
+    "expected_result": [
+      {
+        "C": 3
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_074"
+  },
+  {
+    "question": "How many customers are located in 'Poland'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Poland'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_075"
+  },
+  {
+    "question": "How many albums does 'Jorge Ben' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Jorge Ben'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_076"
+  },
+  {
+    "question": "How many customers are located in 'Canada'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Canada'",
+    "gold_answer": "[{\"C\": 8}]",
+    "expected_result": [
+      {
+        "C": 8
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_077"
+  },
+  {
+    "question": "What is the average invoice total in 'Netherlands'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Netherlands'",
+    "gold_answer": "[{\"A\": 5.8}]",
+    "expected_result": [
+      {
+        "A": 5.8
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_078"
+  },
+  {
+    "question": "Which artists have 'Pop' tracks but no 'R&B/Soul' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Pop') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='R&B/Soul') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Various Artists\"}, {\"Name\": \"U2\"}]",
+    "expected_result": [
+      {
+        "Name": "Various Artists"
+      },
+      {
+        "Name": "U2"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_079"
+  },
+  {
+    "question": "What is the average invoice total in 'Argentina'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Argentina'",
+    "gold_answer": "[{\"A\": 5.37}]",
+    "expected_result": [
+      {
+        "A": 5.37
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_080"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Belgium'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Belgium'",
+    "gold_answer": "[{\"R\": 37.62}]",
+    "expected_result": [
+      {
+        "R": 37.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_081"
+  },
+  {
+    "question": "How many albums does 'Jorge Vercilo' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Jorge Vercilo'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_082"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Austria'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Austria'",
+    "gold_answer": "[{\"R\": 42.62}]",
+    "expected_result": [
+      {
+        "R": 42.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_083"
+  },
+  {
+    "question": "For each genre, what is the longest track?",
+    "tier": 3,
+    "gold_sql": "WITH r AS (SELECT g.Name as Genre,t.Name as Track,t.Milliseconds,ROW_NUMBER() OVER (PARTITION BY g.GenreId ORDER BY t.Milliseconds DESC) as rn FROM Genre g JOIN Track t ON g.GenreId=t.GenreId) SELECT Genre,Track,Milliseconds FROM r WHERE rn=1 ORDER BY Milliseconds DESC",
+    "gold_answer": "[{\"Genre\": \"TV Shows\", \"Track\": \"Occupation / Precipice\", \"Milliseconds\": 5286953}, {\"Genre\": \"Drama\", \"Track\": \"Through a Looking Glass\", \"Milliseconds\": 5088838}, {\"Genre\": \"Sci Fi & Fantasy\", \"Track\": \"Greetings from Earth, Pt. 1\", \"Milliseconds\": 2960293}]",
+    "expected_result": [
+      {
+        "Genre": "TV Shows",
+        "Track": "Occupation / Precipice",
+        "Milliseconds": 5286953
+      },
+      {
+        "Genre": "Drama",
+        "Track": "Through a Looking Glass",
+        "Milliseconds": 5088838
+      },
+      {
+        "Genre": "Sci Fi & Fantasy",
+        "Track": "Greetings from Earth, Pt. 1",
+        "Milliseconds": 2960293
+      },
+      {
+        "Genre": "Science Fiction",
+        "Track": "Hero",
+        "Milliseconds": 2713755
+      },
+      {
+        "Genre": "Comedy",
+        "Track": "The Job",
+        "Milliseconds": 2541875
+      },
+      {
+        "Genre": "Rock",
+        "Track": "Dazed And Confused",
+        "Milliseconds": 1612329
+      },
+      {
+        "Genre": "Jazz",
+        "Track": "My Funny Valentine (Live)",
+        "Milliseconds": 907520
+      },
+      {
+        "Genre": "Metal",
+        "Track": "Rime of the Ancient Mariner",
+        "Milliseconds": 816509
+      },
+      {
+        "Genre": "Alternative",
+        "Track": "Reach Down",
+        "Milliseconds": 672773
+      },
+      {
+        "Genre": "Pop",
+        "Track": "Amy Amy Amy (Outro)",
+        "Milliseconds": 663426
+      },
+      {
+        "Genre": "Classical",
+        "Track": "Adagio for Strings from the String Quartet, Op. 11",
+        "Milliseconds": 596519
+      },
+      {
+        "Genre": "Blues",
+        "Track": "Talkin' 'Bout Women Obviously",
+        "Milliseconds": 589531
+      },
+      {
+        "Genre": "Alternative & Punk",
+        "Track": "Homecoming / The Death Of St. Jimmy / East 12th St. / Nobody Likes You / Rock And Roll Girlfriend / We're Coming Home Again",
+        "Milliseconds": 558602
+      },
+      {
+        "Genre": "Latin",
+        "Track": "Faroeste Caboclo",
+        "Milliseconds": 543007
+      },
+      {
+        "Genre": "Electronica/Dance",
+        "Track": "Just Another Story",
+        "Milliseconds": 529684
+      },
+      {
+        "Genre": "Heavy Metal",
+        "Track": "Dance Of Death",
+        "Milliseconds": 516649
+      },
+      {
+        "Genre": "R&B/Soul",
+        "Track": "Rehab (Hot Chip Remix)",
+        "Milliseconds": 418293
+      },
+      {
+        "Genre": "Hip Hop/Rap",
+        "Track": "Se Liga",
+        "Milliseconds": 410409
+      },
+      {
+        "Genre": "Bossa Nova",
+        "Track": "Samba Da Bênção",
+        "Milliseconds": 409965
+      },
+      {
+        "Genre": "Soundtrack",
+        "Track": "Always Forever Now",
+        "Milliseconds": 383764
+      },
+      {
+        "Genre": "Reggae",
+        "Track": "Equal Rights Downpresser Man",
+        "Milliseconds": 366733
+      },
+      {
+        "Genre": "World",
+        "Track": "I Ka Barra (Your Work)",
+        "Milliseconds": 300605
+      },
+      {
+        "Genre": "Easy Listening",
+        "Track": "Mack The Knife",
+        "Milliseconds": 292075
+      },
+      {
+        "Genre": "Opera",
+        "Track": "Die Zauberflöte, K.620: \"Der Hölle Rache Kocht in Meinem Herze\"",
+        "Milliseconds": 174813
+      },
+      {
+        "Genre": "Rock And Roll",
+        "Track": "Slow Down",
+        "Milliseconds": 163265
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_084"
+  },
+  {
+    "question": "What is the total revenue generated by 'Drama' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Drama'",
+    "gold_answer": "[{\"Revenue\": 57.71}]",
+    "expected_result": [
+      {
+        "Revenue": 57.71
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_085"
+  },
+  {
+    "question": "What is the average length of 'Drama' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Drama'",
+    "gold_answer": "[{\"AvgSeconds\": 2575.3}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 2575.3
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_086"
+  },
+  {
+    "question": "How many tracks does 'Chico Science & Nação Zumbi' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Chico Science & Nação Zumbi'",
+    "gold_answer": "[{\"C\": 36}]",
+    "expected_result": [
+      {
+        "C": 36
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_087"
+  },
+  {
+    "question": "What is the total revenue generated by 'Hip Hop/Rap' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Hip Hop/Rap'",
+    "gold_answer": "[{\"Revenue\": 16.83}]",
+    "expected_result": [
+      {
+        "Revenue": 16.83
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_088"
+  },
+  {
+    "question": "How many tracks does 'Queen' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Queen'",
+    "gold_answer": "[{\"C\": 45}]",
+    "expected_result": [
+      {
+        "C": 45
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_089"
+  },
+  {
+    "question": "How many tracks are in the 'Heavy Metal' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Heavy Metal'",
+    "gold_answer": "[{\"TrackCount\": 28}]",
+    "expected_result": [
+      {
+        "TrackCount": 28
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_090"
+  },
+  {
+    "question": "Which artists have 'Science Fiction' tracks but no 'Blues' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Science Fiction') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Blues') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Battlestar Galactica\"}]",
+    "expected_result": [
+      {
+        "Name": "Battlestar Galactica"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_091"
+  },
+  {
+    "question": "How many albums does 'AC/DC' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='AC/DC'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_092"
+  },
+  {
+    "question": "How many albums does 'Chico Science & Nação Zumbi' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Chico Science & Nação Zumbi'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_093"
+  },
+  {
+    "question": "How many tracks does 'Gonzaguinha' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Gonzaguinha'",
+    "gold_answer": "[{\"C\": 14}]",
+    "expected_result": [
+      {
+        "C": 14
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_094"
+  },
+  {
+    "question": "What is the average invoice total in 'Brazil'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Brazil'",
+    "gold_answer": "[{\"A\": 5.43}]",
+    "expected_result": [
+      {
+        "A": 5.43
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_095"
+  },
+  {
+    "question": "What is the total revenue from customers in 'United Kingdom'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='United Kingdom'",
+    "gold_answer": "[{\"R\": 112.86}]",
+    "expected_result": [
+      {
+        "R": 112.86
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_096"
+  },
+  {
+    "question": "What is the average invoice total in 'Hungary'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Hungary'",
+    "gold_answer": "[{\"A\": 6.52}]",
+    "expected_result": [
+      {
+        "A": 6.52
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_097"
+  },
+  {
+    "question": "How many albums does 'Milton Nascimento' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Milton Nascimento'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_098"
+  },
+  {
+    "question": "How many customers are located in 'Norway'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Norway'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_099"
+  },
+  {
+    "question": "What is the average length of 'Blues' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Blues'",
+    "gold_answer": "[{\"AvgSeconds\": 270.4}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 270.4
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_100"
+  },
+  {
+    "question": "How many albums does 'Barão Vermelho' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Barão Vermelho'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_101"
+  },
+  {
+    "question": "How many albums does 'Buddy Guy' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Buddy Guy'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_102"
+  },
+  {
+    "question": "How many albums does 'Sandra De Sá' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Sandra De Sá'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_103"
+  },
+  {
+    "question": "What is the average length of 'Reggae' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Reggae'",
+    "gold_answer": "[{\"AvgSeconds\": 247.2}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 247.2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_104"
+  },
+  {
+    "question": "What is the average invoice total in 'Denmark'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Denmark'",
+    "gold_answer": "[{\"A\": 5.37}]",
+    "expected_result": [
+      {
+        "A": 5.37
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_105"
+  },
+  {
+    "question": "What was the total revenue in 2021?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE strftime('%Y',InvoiceDate)='2021'",
+    "gold_answer": "[{\"R\": 449.46}]",
+    "expected_result": [
+      {
+        "R": 449.46
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_106"
+  },
+  {
+    "question": "How many albums does 'Marcos Valle' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Marcos Valle'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_107"
+  },
+  {
+    "question": "How many albums does 'Gonzaguinha' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Gonzaguinha'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_108"
+  },
+  {
+    "question": "How many tracks does 'Pedro Luís & A Parede' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Pedro Luís & A Parede'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_109"
+  },
+  {
+    "question": "How many tracks does 'Barão Vermelho' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Barão Vermelho'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_110"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Argentina'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Argentina'",
+    "gold_answer": "[{\"R\": 37.62}]",
+    "expected_result": [
+      {
+        "R": 37.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_111"
+  },
+  {
+    "question": "How many tracks does 'David Coverdale' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='David Coverdale'",
+    "gold_answer": "[{\"C\": 12}]",
+    "expected_result": [
+      {
+        "C": 12
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_112"
+  },
+  {
+    "question": "How many customers are located in 'Portugal'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Portugal'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_113"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Spain'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Spain'",
+    "gold_answer": "[{\"R\": 37.62}]",
+    "expected_result": [
+      {
+        "R": 37.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_114"
+  },
+  {
+    "question": "How many albums does 'João Gilberto' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='João Gilberto'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_115"
+  },
+  {
+    "question": "How many tracks does 'Elis Regina' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Elis Regina'",
+    "gold_answer": "[{\"C\": 14}]",
+    "expected_result": [
+      {
+        "C": 14
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_116"
+  },
+  {
+    "question": "What is the average invoice total in 'Spain'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Spain'",
+    "gold_answer": "[{\"A\": 5.37}]",
+    "expected_result": [
+      {
+        "A": 5.37
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_117"
+  },
+  {
+    "question": "What is the average length of 'Metal' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Metal'",
+    "gold_answer": "[{\"AvgSeconds\": 309.7}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 309.7
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_118"
+  },
+  {
+    "question": "What is the average length of 'Jazz' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Jazz'",
+    "gold_answer": "[{\"AvgSeconds\": 291.8}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 291.8
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_119"
+  },
+  {
+    "question": "How many invoices were issued in 2025?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2025'",
+    "gold_answer": "[{\"C\": 80}]",
+    "expected_result": [
+      {
+        "C": 80
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_120"
+  },
+  {
+    "question": "How many tracks does 'Milton Nascimento' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Milton Nascimento'",
+    "gold_answer": "[{\"C\": 26}]",
+    "expected_result": [
+      {
+        "C": 26
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_121"
+  },
+  {
+    "question": "What is the total revenue generated by 'R&B/Soul' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='R&B/Soul'",
+    "gold_answer": "[{\"Revenue\": 40.59}]",
+    "expected_result": [
+      {
+        "Revenue": 40.59
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_122"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Australia'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Australia'",
+    "gold_answer": "[{\"R\": 37.62}]",
+    "expected_result": [
+      {
+        "R": 37.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_123"
+  },
+  {
+    "question": "What is the average length of 'Rock And Roll' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Rock And Roll'",
+    "gold_answer": "[{\"AvgSeconds\": 134.6}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 134.6
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_124"
+  },
+  {
+    "question": "Top 5 customers by total spending",
+    "tier": 2,
+    "gold_sql": "SELECT c.FirstName||' '||c.LastName as Name,ROUND(SUM(i.Total),2) as S FROM Customer c JOIN Invoice i ON c.CustomerId=i.CustomerId GROUP BY c.CustomerId ORDER BY S DESC LIMIT 5",
+    "gold_answer": "[{\"Name\": \"Helena Holý\", \"S\": 49.62}, {\"Name\": \"Richard Cunningham\", \"S\": 47.62}, {\"Name\": \"Luis Rojas\", \"S\": 46.62}]",
+    "expected_result": [
+      {
+        "Name": "Helena Holý",
+        "S": 49.62
+      },
+      {
+        "Name": "Richard Cunningham",
+        "S": 47.62
+      },
+      {
+        "Name": "Luis Rojas",
+        "S": 46.62
+      },
+      {
+        "Name": "Ladislav Kovács",
+        "S": 45.62
+      },
+      {
+        "Name": "Hugh O'Reilly",
+        "S": 45.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_125"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Sweden'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Sweden'",
+    "gold_answer": "[{\"R\": 38.62}]",
+    "expected_result": [
+      {
+        "R": 38.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_126"
+  },
+  {
+    "question": "What is the average length of 'Pop' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Pop'",
+    "gold_answer": "[{\"AvgSeconds\": 229.0}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 229.0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_127"
+  },
+  {
+    "question": "How many tracks does 'Os Cariocas' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Os Cariocas'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_128"
+  },
+  {
+    "question": "What is the average invoice total in 'Portugal'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Portugal'",
+    "gold_answer": "[{\"A\": 5.52}]",
+    "expected_result": [
+      {
+        "A": 5.52
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_129"
+  },
+  {
+    "question": "Which track is the longest?",
+    "tier": 2,
+    "gold_sql": "SELECT Name,Milliseconds FROM Track ORDER BY Milliseconds DESC LIMIT 1",
+    "gold_answer": "[{\"Name\": \"Occupation / Precipice\", \"Milliseconds\": 5286953}]",
+    "expected_result": [
+      {
+        "Name": "Occupation / Precipice",
+        "Milliseconds": 5286953
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_130"
+  },
+  {
+    "question": "How many invoices were issued in 2023?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2023'",
+    "gold_answer": "[{\"C\": 83}]",
+    "expected_result": [
+      {
+        "C": 83
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_131"
+  },
+  {
+    "question": "What is the average invoice total in 'Austria'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Austria'",
+    "gold_answer": "[{\"A\": 6.09}]",
+    "expected_result": [
+      {
+        "A": 6.09
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_132"
+  },
+  {
+    "question": "How many customers are located in 'Netherlands'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Netherlands'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_133"
+  },
+  {
+    "question": "How many tracks does 'Apocalyptica' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Apocalyptica'",
+    "gold_answer": "[{\"C\": 8}]",
+    "expected_result": [
+      {
+        "C": 8
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_134"
+  },
+  {
+    "question": "What is the average invoice total in 'Finland'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Finland'",
+    "gold_answer": "[{\"A\": 5.95}]",
+    "expected_result": [
+      {
+        "A": 5.95
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_135"
+  },
+  {
+    "question": "Which artists have 'Alternative & Punk' tracks but no 'Science Fiction' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Alternative & Punk') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Science Fiction') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Audioslave\"}, {\"Name\": \"Body Count\"}, {\"Name\": \"Green Day\"}]",
+    "expected_result": [
+      {
+        "Name": "Audioslave"
+      },
+      {
+        "Name": "Body Count"
+      },
+      {
+        "Name": "Green Day"
+      },
+      {
+        "Name": "Os Mutantes"
+      },
+      {
+        "Name": "Faith No More"
+      },
+      {
+        "Name": "Foo Fighters"
+      },
+      {
+        "Name": "JET"
+      },
+      {
+        "Name": "Pearl Jam"
+      },
+      {
+        "Name": "R.E.M. Feat. Kate Pearson"
+      },
+      {
+        "Name": "R.E.M."
+      },
+      {
+        "Name": "Raimundos"
+      },
+      {
+        "Name": "Red Hot Chili Peppers"
+      },
+      {
+        "Name": "Smashing Pumpkins"
+      },
+      {
+        "Name": "The Clash"
+      },
+      {
+        "Name": "The Tea Party"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_136"
+  },
+  {
+    "question": "How many tracks does 'Ney Matogrosso' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Ney Matogrosso'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_137"
+  },
+  {
+    "question": "How many tracks are in the 'Opera' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Opera'",
+    "gold_answer": "[{\"TrackCount\": 1}]",
+    "expected_result": [
+      {
+        "TrackCount": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_138"
+  },
+  {
+    "question": "How many albums does 'Nando Reis' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Nando Reis'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_139"
+  },
+  {
+    "question": "How many albums does 'Pedro Luís & A Parede' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Pedro Luís & A Parede'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_140"
+  },
+  {
+    "question": "How many tracks does 'Cidade Negra' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Cidade Negra'",
+    "gold_answer": "[{\"C\": 31}]",
+    "expected_result": [
+      {
+        "C": 31
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_141"
+  },
+  {
+    "question": "How many albums does 'Edson, DJ Marky & DJ Patife Featuring Fernanda Porto' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Edson, DJ Marky & DJ Patife Featuring Fernanda Porto'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_142"
+  },
+  {
+    "question": "Cumulative running revenue over 2021",
+    "tier": 3,
+    "gold_sql": "SELECT InvoiceDate,Total,ROUND(SUM(Total) OVER (ORDER BY InvoiceDate),2) as Running FROM Invoice WHERE strftime('%Y',InvoiceDate)='2021' ORDER BY InvoiceDate LIMIT 15",
+    "gold_answer": "[{\"InvoiceDate\": \"2021-01-01 00:00:00\", \"Total\": 1.98, \"Running\": 1.98}, {\"InvoiceDate\": \"2021-01-02 00:00:00\", \"Total\": 3.96, \"Running\": 5.94}, {\"InvoiceDate\": \"2021-01-03 00:00:00\", \"Total\": 5.94, \"Running\": 11.88}]",
+    "expected_result": [
+      {
+        "InvoiceDate": "2021-01-01 00:00:00",
+        "Total": 1.98,
+        "Running": 1.98
+      },
+      {
+        "InvoiceDate": "2021-01-02 00:00:00",
+        "Total": 3.96,
+        "Running": 5.94
+      },
+      {
+        "InvoiceDate": "2021-01-03 00:00:00",
+        "Total": 5.94,
+        "Running": 11.88
+      },
+      {
+        "InvoiceDate": "2021-01-06 00:00:00",
+        "Total": 8.91,
+        "Running": 20.79
+      },
+      {
+        "InvoiceDate": "2021-01-11 00:00:00",
+        "Total": 13.86,
+        "Running": 34.65
+      },
+      {
+        "InvoiceDate": "2021-01-19 00:00:00",
+        "Total": 0.99,
+        "Running": 35.64
+      },
+      {
+        "InvoiceDate": "2021-02-01 00:00:00",
+        "Total": 1.98,
+        "Running": 39.6
+      },
+      {
+        "InvoiceDate": "2021-02-01 00:00:00",
+        "Total": 1.98,
+        "Running": 39.6
+      },
+      {
+        "InvoiceDate": "2021-02-02 00:00:00",
+        "Total": 3.96,
+        "Running": 43.56
+      },
+      {
+        "InvoiceDate": "2021-02-03 00:00:00",
+        "Total": 5.94,
+        "Running": 49.5
+      },
+      {
+        "InvoiceDate": "2021-02-06 00:00:00",
+        "Total": 8.91,
+        "Running": 58.41
+      },
+      {
+        "InvoiceDate": "2021-02-11 00:00:00",
+        "Total": 13.86,
+        "Running": 72.27
+      },
+      {
+        "InvoiceDate": "2021-02-19 00:00:00",
+        "Total": 0.99,
+        "Running": 73.26
+      },
+      {
+        "InvoiceDate": "2021-03-04 00:00:00",
+        "Total": 1.98,
+        "Running": 77.22
+      },
+      {
+        "InvoiceDate": "2021-03-04 00:00:00",
+        "Total": 1.98,
+        "Running": 77.22
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "NL",
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_143"
+  },
+  {
+    "question": "What is the average length of 'Alternative' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Alternative'",
+    "gold_answer": "[{\"AvgSeconds\": 264.1}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 264.1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_144"
+  },
+  {
+    "question": "What is the average length of 'Science Fiction' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Science Fiction'",
+    "gold_answer": "[{\"AvgSeconds\": 2625.5}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 2625.5
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_145"
+  },
+  {
+    "question": "How many albums does 'Kiss' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Kiss'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_146"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Finland'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Finland'",
+    "gold_answer": "[{\"R\": 41.62}]",
+    "expected_result": [
+      {
+        "R": 41.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_147"
+  },
+  {
+    "question": "Which playlists have tracks from more than 5 artists?",
+    "tier": 3,
+    "gold_sql": "SELECT p.Name,COUNT(DISTINCT ar.ArtistId) as C FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId=pt.PlaylistId JOIN Track t ON pt.TrackId=t.TrackId JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId GROUP BY p.PlaylistId HAVING C>5 ORDER BY C DESC",
+    "gold_answer": "[{\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"90’s Music\", \"C\": 109}]",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "90’s Music",
+        "C": 109
+      },
+      {
+        "Name": "Classical",
+        "C": 67
+      },
+      {
+        "Name": "Classical 101 - The Basics",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Deep Cuts",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Next Steps",
+        "C": 23
+      },
+      {
+        "Name": "Brazilian Music",
+        "C": 12
+      },
+      {
+        "Name": "Heavy Metal Classic",
+        "C": 9
+      },
+      {
+        "Name": "Grunge",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_148"
+  },
+  {
+    "question": "How many albums does 'Black Sabbath' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Black Sabbath'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_149"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Denmark'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Denmark'",
+    "gold_answer": "[{\"R\": 37.62}]",
+    "expected_result": [
+      {
+        "R": 37.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_150"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Poland'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Poland'",
+    "gold_answer": "[{\"R\": 37.62}]",
+    "expected_result": [
+      {
+        "R": 37.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_151"
+  },
+  {
+    "question": "What is the total revenue generated by 'Science Fiction' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Science Fiction'",
+    "gold_answer": "[{\"Revenue\": 11.94}]",
+    "expected_result": [
+      {
+        "Revenue": 11.94
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_152"
+  },
+  {
+    "question": "How many albums does 'Body Count' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Body Count'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_153"
+  },
+  {
+    "question": "How many tracks does 'Aerosmith' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Aerosmith'",
+    "gold_answer": "[{\"C\": 15}]",
+    "expected_result": [
+      {
+        "C": 15
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_154"
+  },
+  {
+    "question": "How many tracks does 'Sandra De Sá' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Sandra De Sá'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_155"
+  },
+  {
+    "question": "What is the total revenue generated by 'Rock' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Rock'",
+    "gold_answer": "[{\"Revenue\": 826.65}]",
+    "expected_result": [
+      {
+        "Revenue": 826.65
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_156"
+  },
+  {
+    "question": "How many albums does 'Caetano Veloso' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Caetano Veloso'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_157"
+  },
+  {
+    "question": "How many invoices were issued in 2021?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2021'",
+    "gold_answer": "[{\"C\": 83}]",
+    "expected_result": [
+      {
+        "C": 83
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_158"
+  },
+  {
+    "question": "Which month in 2024 had the most invoices?",
+    "tier": 2,
+    "gold_sql": "SELECT strftime('%m',InvoiceDate) as Month, COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2024' GROUP BY Month ORDER BY C DESC LIMIT 1",
+    "gold_answer": "[{\"Month\": \"12\", \"C\": 7}]",
+    "expected_result": [
+      {
+        "Month": "12",
+        "C": 7
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_159"
+  },
+  {
+    "question": "How many tracks does 'Baby Consuelo' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Baby Consuelo'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_160"
+  },
+  {
+    "question": "How many albums does 'Ney Matogrosso' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Ney Matogrosso'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_161"
+  },
+  {
+    "question": "Total revenue per artist including those with zero revenue",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name, COALESCE(SUM(il.UnitPrice*il.Quantity),0) as R FROM Artist ar LEFT JOIN Album al ON ar.ArtistId=al.ArtistId LEFT JOIN Track t ON al.AlbumId=t.AlbumId LEFT JOIN InvoiceLine il ON t.TrackId=il.TrackId GROUP BY ar.ArtistId ORDER BY R DESC LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Iron Maiden\", \"R\": 138.6}, {\"Name\": \"U2\", \"R\": 105.92999999999999}, {\"Name\": \"Metallica\", \"R\": 90.09}]",
+    "expected_result": [
+      {
+        "Name": "Iron Maiden",
+        "R": 138.6
+      },
+      {
+        "Name": "U2",
+        "R": 105.92999999999999
+      },
+      {
+        "Name": "Metallica",
+        "R": 90.09
+      },
+      {
+        "Name": "Led Zeppelin",
+        "R": 86.13
+      },
+      {
+        "Name": "Lost",
+        "R": 81.59
+      },
+      {
+        "Name": "The Office",
+        "R": 49.75
+      },
+      {
+        "Name": "Os Paralamas Do Sucesso",
+        "R": 44.55
+      },
+      {
+        "Name": "Deep Purple",
+        "R": 43.56
+      },
+      {
+        "Name": "Faith No More",
+        "R": 41.58
+      },
+      {
+        "Name": "Eric Clapton",
+        "R": 39.6
+      },
+      {
+        "Name": "R.E.M.",
+        "R": 38.61
+      },
+      {
+        "Name": "Queen",
+        "R": 36.63
+      },
+      {
+        "Name": "Creedence Clearwater Revival",
+        "R": 36.63
+      },
+      {
+        "Name": "Battlestar Galactica (Classic)",
+        "R": 35.82
+      },
+      {
+        "Name": "Guns N' Roses",
+        "R": 35.64
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NH",
+      "GA"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_162"
+  },
+  {
+    "question": "What is the average length of 'Electronica/Dance' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Electronica/Dance'",
+    "gold_answer": "[{\"AvgSeconds\": 303.0}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 303.0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_163"
+  },
+  {
+    "question": "How many albums does 'Elis Regina' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Elis Regina'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_164"
+  },
+  {
+    "question": "How many albums does 'Aerosmith' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Aerosmith'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_165"
+  },
+  {
+    "question": "How many tracks does 'Deep Purple' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Deep Purple'",
+    "gold_answer": "[{\"C\": 92}]",
+    "expected_result": [
+      {
+        "C": 92
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_166"
+  },
+  {
+    "question": "What is the average length of 'Rock' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Rock'",
+    "gold_answer": "[{\"AvgSeconds\": 283.9}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 283.9
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_167"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Canada'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Canada'",
+    "gold_answer": "[{\"R\": 303.96}]",
+    "expected_result": [
+      {
+        "R": 303.96
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_168"
+  },
+  {
+    "question": "How many tracks are in the 'Science Fiction' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Science Fiction'",
+    "gold_answer": "[{\"TrackCount\": 13}]",
+    "expected_result": [
+      {
+        "TrackCount": 13
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_169"
+  },
+  {
+    "question": "Which artists have 'Reggae' tracks but no 'Hip Hop/Rap' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Reggae') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Hip Hop/Rap') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Cidade Negra\"}, {\"Name\": \"Lenny Kravitz\"}, {\"Name\": \"UB40\"}]",
+    "expected_result": [
+      {
+        "Name": "Cidade Negra"
+      },
+      {
+        "Name": "Lenny Kravitz"
+      },
+      {
+        "Name": "UB40"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_170"
+  },
+  {
+    "question": "Which playlists have tracks from more than 4 artists?",
+    "tier": 3,
+    "gold_sql": "SELECT p.Name,COUNT(DISTINCT ar.ArtistId) as C FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId=pt.PlaylistId JOIN Track t ON pt.TrackId=t.TrackId JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId GROUP BY p.PlaylistId HAVING C>4 ORDER BY C DESC",
+    "gold_answer": "[{\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"90’s Music\", \"C\": 109}]",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "90’s Music",
+        "C": 109
+      },
+      {
+        "Name": "Classical",
+        "C": 67
+      },
+      {
+        "Name": "Classical 101 - The Basics",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Deep Cuts",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Next Steps",
+        "C": 23
+      },
+      {
+        "Name": "Brazilian Music",
+        "C": 12
+      },
+      {
+        "Name": "Heavy Metal Classic",
+        "C": 9
+      },
+      {
+        "Name": "Grunge",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_171"
+  },
+  {
+    "question": "What is the average length of 'Hip Hop/Rap' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Hip Hop/Rap'",
+    "gold_answer": "[{\"AvgSeconds\": 178.2}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 178.2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_172"
+  },
+  {
+    "question": "How many tracks does 'Alice In Chains' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Alice In Chains'",
+    "gold_answer": "[{\"C\": 12}]",
+    "expected_result": [
+      {
+        "C": 12
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_173"
+  },
+  {
+    "question": "How many invoices were issued in 2022?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2022'",
+    "gold_answer": "[{\"C\": 83}]",
+    "expected_result": [
+      {
+        "C": 83
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_174"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Ireland'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Ireland'",
+    "gold_answer": "[{\"R\": 45.62}]",
+    "expected_result": [
+      {
+        "R": 45.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_175"
+  },
+  {
+    "question": "What is the total revenue generated by 'Opera' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Opera'",
+    "gold_answer": "[{\"Revenue\": null}]",
+    "expected_result": [
+      {
+        "Revenue": null
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_176"
+  },
+  {
+    "question": "What is the average length of 'R&B/Soul' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='R&B/Soul'",
+    "gold_answer": "[{\"AvgSeconds\": 220.1}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 220.1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_177"
+  },
+  {
+    "question": "Which month in 2022 had the most invoices?",
+    "tier": 2,
+    "gold_sql": "SELECT strftime('%m',InvoiceDate) as Month, COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2022' GROUP BY Month ORDER BY C DESC LIMIT 1",
+    "gold_answer": "[{\"Month\": \"12\", \"C\": 7}]",
+    "expected_result": [
+      {
+        "Month": "12",
+        "C": 7
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_178"
+  },
+  {
+    "question": "Which playlists have tracks from more than 10 artists?",
+    "tier": 3,
+    "gold_sql": "SELECT p.Name,COUNT(DISTINCT ar.ArtistId) as C FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId=pt.PlaylistId JOIN Track t ON pt.TrackId=t.TrackId JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId GROUP BY p.PlaylistId HAVING C>10 ORDER BY C DESC",
+    "gold_answer": "[{\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"90’s Music\", \"C\": 109}]",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "90’s Music",
+        "C": 109
+      },
+      {
+        "Name": "Classical",
+        "C": 67
+      },
+      {
+        "Name": "Classical 101 - The Basics",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Deep Cuts",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Next Steps",
+        "C": 23
+      },
+      {
+        "Name": "Brazilian Music",
+        "C": 12
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_179"
+  },
+  {
+    "question": "How many tracks use the 'MPEG audio file' media type?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN MediaType mt ON t.MediaTypeId=mt.MediaTypeId WHERE mt.Name='MPEG audio file'",
+    "gold_answer": "[{\"C\": 3034}]",
+    "expected_result": [
+      {
+        "C": 3034
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_180"
+  },
+  {
+    "question": "Which artists have no albums?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar LEFT JOIN Album al ON ar.ArtistId=al.ArtistId WHERE al.AlbumId IS NULL",
+    "gold_answer": "[{\"Name\": \"Milton Nascimento & Bebeto\"}, {\"Name\": \"Azymuth\"}, {\"Name\": \"João Gilberto\"}]",
+    "expected_result": [
+      {
+        "Name": "Milton Nascimento & Bebeto"
+      },
+      {
+        "Name": "Azymuth"
+      },
+      {
+        "Name": "João Gilberto"
+      },
+      {
+        "Name": "Bebel Gilberto"
+      },
+      {
+        "Name": "Jorge Vercilo"
+      },
+      {
+        "Name": "Baby Consuelo"
+      },
+      {
+        "Name": "Ney Matogrosso"
+      },
+      {
+        "Name": "Luiz Melodia"
+      },
+      {
+        "Name": "Nando Reis"
+      },
+      {
+        "Name": "Pedro Luís & A Parede"
+      },
+      {
+        "Name": "Banda Black Rio"
+      },
+      {
+        "Name": "Fernanda Porto"
+      },
+      {
+        "Name": "Os Cariocas"
+      },
+      {
+        "Name": "A Cor Do Som"
+      },
+      {
+        "Name": "Kid Abelha"
+      },
+      {
+        "Name": "Sandra De Sá"
+      },
+      {
+        "Name": "Hermeto Pascoal"
+      },
+      {
+        "Name": "Barão Vermelho"
+      },
+      {
+        "Name": "Edson, DJ Marky & DJ Patife Featuring Fernanda Porto"
+      },
+      {
+        "Name": "Santana Feat. Dave Matthews"
+      },
+      {
+        "Name": "Santana Feat. Everlast"
+      },
+      {
+        "Name": "Santana Feat. Rob Thomas"
+      },
+      {
+        "Name": "Santana Feat. Lauryn Hill & Cee-Lo"
+      },
+      {
+        "Name": "Santana Feat. The Project G&B"
+      },
+      {
+        "Name": "Santana Feat. Maná"
+      },
+      {
+        "Name": "Santana Feat. Eagle-Eye Cherry"
+      },
+      {
+        "Name": "Santana Feat. Eric Clapton"
+      },
+      {
+        "Name": "Vinícius De Moraes & Baden Powell"
+      },
+      {
+        "Name": "Vinícius E Qurteto Em Cy"
+      },
+      {
+        "Name": "Vinícius E Odette Lara"
+      },
+      {
+        "Name": "Vinicius, Toquinho & Quarteto Em Cy"
+      },
+      {
+        "Name": "Motörhead & Girlschool"
+      },
+      {
+        "Name": "Peter Tosh"
+      },
+      {
+        "Name": "R.E.M. Feat. KRS-One"
+      },
+      {
+        "Name": "Simply Red"
+      },
+      {
+        "Name": "Whitesnake"
+      },
+      {
+        "Name": "Christina Aguilera featuring BigElf"
+      },
+      {
+        "Name": "Aerosmith & Sierra Leone's Refugee Allstars"
+      },
+      {
+        "Name": "Los Lonely Boys"
+      },
+      {
+        "Name": "Corinne Bailey Rae"
+      },
+      {
+        "Name": "Dhani Harrison & Jakob Dylan"
+      },
+      {
+        "Name": "Jackson Browne"
+      },
+      {
+        "Name": "Avril Lavigne"
+      },
+      {
+        "Name": "Big & Rich"
+      },
+      {
+        "Name": "Youssou N'Dour"
+      },
+      {
+        "Name": "Black Eyed Peas"
+      },
+      {
+        "Name": "Jack Johnson"
+      },
+      {
+        "Name": "Ben Harper"
+      },
+      {
+        "Name": "Snow Patrol"
+      },
+      {
+        "Name": "Matisyahu"
+      },
+      {
+        "Name": "The Postal Service"
+      },
+      {
+        "Name": "Jaguares"
+      },
+      {
+        "Name": "The Flaming Lips"
+      },
+      {
+        "Name": "Jack's Mannequin & Mick Fleetwood"
+      },
+      {
+        "Name": "Regina Spektor"
+      },
+      {
+        "Name": "Xis"
+      },
+      {
+        "Name": "Nega Gizza"
+      },
+      {
+        "Name": "Gustavo & Andres Veiga & Salazar"
+      },
+      {
+        "Name": "Rodox"
+      },
+      {
+        "Name": "Charlie Brown Jr."
+      },
+      {
+        "Name": "Pedro Luís E A Parede"
+      },
+      {
+        "Name": "Los Hermanos"
+      },
+      {
+        "Name": "Mundo Livre S/A"
+      },
+      {
+        "Name": "Otto"
+      },
+      {
+        "Name": "Instituto"
+      },
+      {
+        "Name": "Nação Zumbi"
+      },
+      {
+        "Name": "DJ Dolores & Orchestra Santa Massa"
+      },
+      {
+        "Name": "Seu Jorge"
+      },
+      {
+        "Name": "Sabotage E Instituto"
+      },
+      {
+        "Name": "Stereo Maracana"
+      },
+      {
+        "Name": "Academy of St. Martin in the Fields, Sir Neville Marriner & William Bennett"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "HL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_181"
+  },
+  {
+    "question": "How many tracks does 'Bebel Gilberto' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Bebel Gilberto'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_182"
+  },
+  {
+    "question": "How many tracks are in the 'Easy Listening' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Easy Listening'",
+    "gold_answer": "[{\"TrackCount\": 24}]",
+    "expected_result": [
+      {
+        "TrackCount": 24
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_183"
+  },
+  {
+    "question": "How many albums does 'Cidade Negra' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Cidade Negra'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_184"
+  },
+  {
+    "question": "How many customers are located in 'Spain'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Spain'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_185"
+  },
+  {
+    "question": "Which artists have 'Alternative' tracks but no 'Opera' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Alternative') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Opera') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Audioslave\"}, {\"Name\": \"Cake\"}, {\"Name\": \"Temple of the Dog\"}]",
+    "expected_result": [
+      {
+        "Name": "Audioslave"
+      },
+      {
+        "Name": "Cake"
+      },
+      {
+        "Name": "Temple of the Dog"
+      },
+      {
+        "Name": "Chris Cornell"
+      },
+      {
+        "Name": "Calexico"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_186"
+  },
+  {
+    "question": "How many albums does 'Apocalyptica' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Apocalyptica'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_187"
+  },
+  {
+    "question": "Which artists have 'Blues' tracks but no 'Science Fiction' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Blues') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Science Fiction') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Buddy Guy\"}, {\"Name\": \"Eric Clapton\"}, {\"Name\": \"Iron Maiden\"}]",
+    "expected_result": [
+      {
+        "Name": "Buddy Guy"
+      },
+      {
+        "Name": "Eric Clapton"
+      },
+      {
+        "Name": "Iron Maiden"
+      },
+      {
+        "Name": "Stevie Ray Vaughan & Double Trouble"
+      },
+      {
+        "Name": "The Black Crowes"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_188"
+  },
+  {
+    "question": "How many tracks are in the 'Latin' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Latin'",
+    "gold_answer": "[{\"TrackCount\": 579}]",
+    "expected_result": [
+      {
+        "TrackCount": 579
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_189"
+  },
+  {
+    "question": "How many tracks does 'Nando Reis' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Nando Reis'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_190"
+  },
+  {
+    "question": "How many customers are located in 'Chile'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Chile'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_191"
+  },
+  {
+    "question": "How many tracks does 'Antônio Carlos Jobim' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Antônio Carlos Jobim'",
+    "gold_answer": "[{\"C\": 31}]",
+    "expected_result": [
+      {
+        "C": 31
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_192"
+  },
+  {
+    "question": "How many tracks are in the 'Reggae' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Reggae'",
+    "gold_answer": "[{\"TrackCount\": 58}]",
+    "expected_result": [
+      {
+        "TrackCount": 58
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_193"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Brazil'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Brazil'",
+    "gold_answer": "[{\"R\": 190.1}]",
+    "expected_result": [
+      {
+        "R": 190.1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_194"
+  },
+  {
+    "question": "How many tracks does 'Ed Motta' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Ed Motta'",
+    "gold_answer": "[{\"C\": 14}]",
+    "expected_result": [
+      {
+        "C": 14
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_195"
+  },
+  {
+    "question": "How many tracks does 'Cláudio Zoli' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Cláudio Zoli'",
+    "gold_answer": "[{\"C\": 10}]",
+    "expected_result": [
+      {
+        "C": 10
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_196"
+  },
+  {
+    "question": "What is the total revenue generated by 'Comedy' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Comedy'",
+    "gold_answer": "[{\"Revenue\": 17.91}]",
+    "expected_result": [
+      {
+        "Revenue": 17.91
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_197"
+  },
+  {
+    "question": "How many albums does 'Alanis Morissette' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Alanis Morissette'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_198"
+  },
+  {
+    "question": "How many albums does 'BackBeat' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='BackBeat'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_199"
+  },
+  {
+    "question": "How many albums does 'Bebel Gilberto' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Bebel Gilberto'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_200"
+  },
+  {
+    "question": "How many customers are located in 'Germany'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Germany'",
+    "gold_answer": "[{\"C\": 4}]",
+    "expected_result": [
+      {
+        "C": 4
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_201"
+  },
+  {
+    "question": "How many tracks does 'Kid Abelha' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Kid Abelha'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_202"
+  },
+  {
+    "question": "How many albums does 'Antônio Carlos Jobim' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Antônio Carlos Jobim'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_203"
+  },
+  {
+    "question": "What is the total revenue generated by 'Soundtrack' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Soundtrack'",
+    "gold_answer": "[{\"Revenue\": 19.8}]",
+    "expected_result": [
+      {
+        "Revenue": 19.8
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_204"
+  },
+  {
+    "question": "How many tracks does 'Bruce Dickinson' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Bruce Dickinson'",
+    "gold_answer": "[{\"C\": 11}]",
+    "expected_result": [
+      {
+        "C": 11
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_205"
+  },
+  {
+    "question": "How many albums does 'Luiz Melodia' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Luiz Melodia'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_206"
+  },
+  {
+    "question": "How many albums does 'Bruce Dickinson' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Bruce Dickinson'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_207"
+  },
+  {
+    "question": "What is the total revenue generated by 'Sci Fi & Fantasy' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Sci Fi & Fantasy'",
+    "gold_answer": "[{\"Revenue\": 39.8}]",
+    "expected_result": [
+      {
+        "Revenue": 39.8
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_208"
+  },
+  {
+    "question": "How many tracks does 'AC/DC' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='AC/DC'",
+    "gold_answer": "[{\"C\": 18}]",
+    "expected_result": [
+      {
+        "C": 18
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_209"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Germany'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Germany'",
+    "gold_answer": "[{\"R\": 156.48}]",
+    "expected_result": [
+      {
+        "R": 156.48
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_210"
+  },
+  {
+    "question": "What is the average length of 'Sci Fi & Fantasy' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Sci Fi & Fantasy'",
+    "gold_answer": "[{\"AvgSeconds\": 2911.8}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 2911.8
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_211"
+  },
+  {
+    "question": "How many customers are located in 'Brazil'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Brazil'",
+    "gold_answer": "[{\"C\": 5}]",
+    "expected_result": [
+      {
+        "C": 5
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_212"
+  },
+  {
+    "question": "How many albums does 'Billy Cobham' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Billy Cobham'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_213"
+  },
+  {
+    "question": "How many customers are located in 'France'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='France'",
+    "gold_answer": "[{\"C\": 5}]",
+    "expected_result": [
+      {
+        "C": 5
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_214"
+  },
+  {
+    "question": "How many tracks are in the 'Pop' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Pop'",
+    "gold_answer": "[{\"TrackCount\": 48}]",
+    "expected_result": [
+      {
+        "TrackCount": 48
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_215"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Italy'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Italy'",
+    "gold_answer": "[{\"R\": 37.62}]",
+    "expected_result": [
+      {
+        "R": 37.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_216"
+  },
+  {
+    "question": "Which playlists have tracks from more than 7 artists?",
+    "tier": 3,
+    "gold_sql": "SELECT p.Name,COUNT(DISTINCT ar.ArtistId) as C FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId=pt.PlaylistId JOIN Track t ON pt.TrackId=t.TrackId JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId GROUP BY p.PlaylistId HAVING C>7 ORDER BY C DESC",
+    "gold_answer": "[{\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"90’s Music\", \"C\": 109}]",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "90’s Music",
+        "C": 109
+      },
+      {
+        "Name": "Classical",
+        "C": 67
+      },
+      {
+        "Name": "Classical 101 - The Basics",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Deep Cuts",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Next Steps",
+        "C": 23
+      },
+      {
+        "Name": "Brazilian Music",
+        "C": 12
+      },
+      {
+        "Name": "Heavy Metal Classic",
+        "C": 9
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_217"
+  },
+  {
+    "question": "Which tracks appear in more playlists than average?",
+    "tier": 3,
+    "gold_sql": "WITH tpc AS (SELECT t.TrackId,t.Name,COUNT(DISTINCT pt.PlaylistId) as C FROM Track t LEFT JOIN PlaylistTrack pt ON t.TrackId=pt.TrackId GROUP BY t.TrackId), a AS (SELECT AVG(C) as Avg FROM tpc) SELECT tpc.Name,tpc.C FROM tpc,a WHERE tpc.C>a.Avg ORDER BY tpc.C DESC LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Intoitus: Adorate Deum\", \"C\": 5}, {\"Name\": \"Miserere mei, Deus\", \"C\": 5}, {\"Name\": \"Aria Mit 30 Veränderungen, BWV 988 \\\"Goldberg Variations\\\": Aria\", \"C\": 5}]",
+    "expected_result": [
+      {
+        "Name": "Intoitus: Adorate Deum",
+        "C": 5
+      },
+      {
+        "Name": "Miserere mei, Deus",
+        "C": 5
+      },
+      {
+        "Name": "Aria Mit 30 Veränderungen, BWV 988 \"Goldberg Variations\": Aria",
+        "C": 5
+      },
+      {
+        "Name": "Suite for Solo Cello No. 1 in G Major, BWV 1007: I. Prélude",
+        "C": 5
+      },
+      {
+        "Name": "The Messiah: Behold, I Tell You a Mystery... The Trumpet Shall Sound",
+        "C": 5
+      },
+      {
+        "Name": "Solomon HWV 67: The Arrival of the Queen of Sheba",
+        "C": 5
+      },
+      {
+        "Name": "Symphony No.5 in C Minor: I. Allegro con brio",
+        "C": 5
+      },
+      {
+        "Name": "Ave Maria",
+        "C": 5
+      },
+      {
+        "Name": "Nabucco: Chorus, \"Va, Pensiero, Sull'ali Dorate\"",
+        "C": 5
+      },
+      {
+        "Name": "Die Walküre: The Ride of the Valkyries",
+        "C": 5
+      },
+      {
+        "Name": "Nimrod (Adagio) from Variations On an Original Theme, Op. 36 \"Enigma\"",
+        "C": 5
+      },
+      {
+        "Name": "Jupiter, the Bringer of Jollity",
+        "C": 5
+      },
+      {
+        "Name": "Turandot, Act III, Nessun dorma!",
+        "C": 5
+      },
+      {
+        "Name": "Carmina Burana: O Fortuna",
+        "C": 5
+      },
+      {
+        "Name": "Toccata and Fugue in D Minor, BWV 565: I. Toccata",
+        "C": 5
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "GA"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_218"
+  },
+  {
+    "question": "Which artists have 'Bossa Nova' tracks but no 'TV Shows' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Bossa Nova') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='TV Shows') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Toquinho & Vinícius\"}]",
+    "expected_result": [
+      {
+        "Name": "Toquinho & Vinícius"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_219"
+  },
+  {
+    "question": "Which playlists have tracks from more than 2 artists?",
+    "tier": 3,
+    "gold_sql": "SELECT p.Name,COUNT(DISTINCT ar.ArtistId) as C FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId=pt.PlaylistId JOIN Track t ON pt.TrackId=t.TrackId JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId GROUP BY p.PlaylistId HAVING C>2 ORDER BY C DESC",
+    "gold_answer": "[{\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"90’s Music\", \"C\": 109}]",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "90’s Music",
+        "C": 109
+      },
+      {
+        "Name": "Classical",
+        "C": 67
+      },
+      {
+        "Name": "Classical 101 - The Basics",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Deep Cuts",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Next Steps",
+        "C": 23
+      },
+      {
+        "Name": "Brazilian Music",
+        "C": 12
+      },
+      {
+        "Name": "Heavy Metal Classic",
+        "C": 9
+      },
+      {
+        "Name": "Grunge",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_220"
+  },
+  {
+    "question": "Top 3 genres per customer by spending",
+    "tier": 3,
+    "gold_sql": "WITH s AS (SELECT c.CustomerId,c.FirstName||' '||c.LastName as Name,g.Name as Genre,SUM(il.UnitPrice*il.Quantity) as Spent,ROW_NUMBER() OVER (PARTITION BY c.CustomerId ORDER BY SUM(il.UnitPrice*il.Quantity) DESC) as rn FROM Customer c JOIN Invoice i ON c.CustomerId=i.CustomerId JOIN InvoiceLine il ON i.InvoiceId=il.InvoiceId JOIN Track t ON il.TrackId=t.TrackId JOIN Genre g ON t.GenreId=g.GenreId GROUP BY c.CustomerId,g.GenreId) SELECT Name,Genre,ROUND(Spent,2) as Spent FROM s WHERE rn<=3 ORDER BY Name,Spent DESC LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Aaron Mitchell\", \"Genre\": \"Latin\", \"Spent\": 13.86}, {\"Name\": \"Aaron Mitchell\", \"Genre\": \"Rock\", \"Spent\": 8.91}, {\"Name\": \"Aaron Mitchell\", \"Genre\": \"Metal\", \"Spent\": 6.93}]",
+    "expected_result": [
+      {
+        "Name": "Aaron Mitchell",
+        "Genre": "Latin",
+        "Spent": 13.86
+      },
+      {
+        "Name": "Aaron Mitchell",
+        "Genre": "Rock",
+        "Spent": 8.91
+      },
+      {
+        "Name": "Aaron Mitchell",
+        "Genre": "Metal",
+        "Spent": 6.93
+      },
+      {
+        "Name": "Alexandre Rocha",
+        "Genre": "Latin",
+        "Spent": 15.84
+      },
+      {
+        "Name": "Alexandre Rocha",
+        "Genre": "Rock",
+        "Spent": 10.89
+      },
+      {
+        "Name": "Alexandre Rocha",
+        "Genre": "Alternative & Punk",
+        "Spent": 3.96
+      },
+      {
+        "Name": "Astrid Gruber",
+        "Genre": "Rock",
+        "Spent": 14.85
+      },
+      {
+        "Name": "Astrid Gruber",
+        "Genre": "TV Shows",
+        "Spent": 7.96
+      },
+      {
+        "Name": "Astrid Gruber",
+        "Genre": "Metal",
+        "Spent": 6.93
+      },
+      {
+        "Name": "Bjørn Hansen",
+        "Genre": "Rock",
+        "Spent": 16.83
+      },
+      {
+        "Name": "Bjørn Hansen",
+        "Genre": "Classical",
+        "Spent": 4.95
+      },
+      {
+        "Name": "Bjørn Hansen",
+        "Genre": "Latin",
+        "Spent": 4.95
+      },
+      {
+        "Name": "Camille Bernard",
+        "Genre": "Rock",
+        "Spent": 12.87
+      },
+      {
+        "Name": "Camille Bernard",
+        "Genre": "Alternative & Punk",
+        "Spent": 9.9
+      },
+      {
+        "Name": "Camille Bernard",
+        "Genre": "Latin",
+        "Spent": 6.93
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "GA"
+    ],
+    "join_complexity": "L5",
+    "synthetic": true,
+    "id": "gt_221"
+  },
+  {
+    "question": "Which artists have zero revenue?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar LEFT JOIN Album al ON ar.ArtistId=al.ArtistId LEFT JOIN Track t ON al.AlbumId=t.AlbumId LEFT JOIN InvoiceLine il ON t.TrackId=il.TrackId GROUP BY ar.ArtistId HAVING COALESCE(SUM(il.UnitPrice*il.Quantity),0)=0 LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Milton Nascimento & Bebeto\"}, {\"Name\": \"Azymuth\"}, {\"Name\": \"João Gilberto\"}]",
+    "expected_result": [
+      {
+        "Name": "Milton Nascimento & Bebeto"
+      },
+      {
+        "Name": "Azymuth"
+      },
+      {
+        "Name": "João Gilberto"
+      },
+      {
+        "Name": "Bebel Gilberto"
+      },
+      {
+        "Name": "Jorge Vercilo"
+      },
+      {
+        "Name": "Baby Consuelo"
+      },
+      {
+        "Name": "Ney Matogrosso"
+      },
+      {
+        "Name": "Luiz Melodia"
+      },
+      {
+        "Name": "Nando Reis"
+      },
+      {
+        "Name": "Pedro Luís & A Parede"
+      },
+      {
+        "Name": "Banda Black Rio"
+      },
+      {
+        "Name": "Fernanda Porto"
+      },
+      {
+        "Name": "Os Cariocas"
+      },
+      {
+        "Name": "A Cor Do Som"
+      },
+      {
+        "Name": "Kid Abelha"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NH",
+      "HL"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_222"
+  },
+  {
+    "question": "Month-over-month invoice count change in 2021",
+    "tier": 3,
+    "gold_sql": "WITH m AS (SELECT strftime('%Y-%m',InvoiceDate) as Month,COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2021' GROUP BY Month) SELECT Month,C,C-LAG(C) OVER (ORDER BY Month) as Change FROM m ORDER BY Month",
+    "gold_answer": "[{\"Month\": \"2021-01\", \"C\": 6, \"Change\": null}, {\"Month\": \"2021-02\", \"C\": 7, \"Change\": 1}, {\"Month\": \"2021-03\", \"C\": 7, \"Change\": 0}]",
+    "expected_result": [
+      {
+        "Month": "2021-01",
+        "C": 6,
+        "Change": null
+      },
+      {
+        "Month": "2021-02",
+        "C": 7,
+        "Change": 1
+      },
+      {
+        "Month": "2021-03",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-04",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-05",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-06",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-07",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-08",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-09",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-10",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-11",
+        "C": 7,
+        "Change": 0
+      },
+      {
+        "Month": "2021-12",
+        "C": 7,
+        "Change": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "NL",
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_223"
+  },
+  {
+    "question": "Revenue by each employee's customers by genre",
+    "tier": 3,
+    "gold_sql": "SELECT e.FirstName||' '||e.LastName as Emp,g.Name as Genre,ROUND(SUM(il.UnitPrice*il.Quantity),2) as R FROM Employee e JOIN Customer c ON e.EmployeeId=c.SupportRepId JOIN Invoice i ON c.CustomerId=i.CustomerId JOIN InvoiceLine il ON i.InvoiceId=il.InvoiceId JOIN Track t ON il.TrackId=t.TrackId JOIN Genre g ON t.GenreId=g.GenreId GROUP BY e.EmployeeId,g.GenreId ORDER BY R DESC LIMIT 15",
+    "gold_answer": "[{\"Emp\": \"Jane Peacock\", \"Genre\": \"Rock\", \"R\": 300.96}, {\"Emp\": \"Margaret Park\", \"Genre\": \"Rock\", \"R\": 297.0}, {\"Emp\": \"Steve Johnson\", \"Genre\": \"Rock\", \"R\": 228.69}]",
+    "expected_result": [
+      {
+        "Emp": "Jane Peacock",
+        "Genre": "Rock",
+        "R": 300.96
+      },
+      {
+        "Emp": "Margaret Park",
+        "Genre": "Rock",
+        "R": 297.0
+      },
+      {
+        "Emp": "Steve Johnson",
+        "Genre": "Rock",
+        "R": 228.69
+      },
+      {
+        "Emp": "Jane Peacock",
+        "Genre": "Latin",
+        "R": 137.61
+      },
+      {
+        "Emp": "Margaret Park",
+        "Genre": "Latin",
+        "R": 126.72
+      },
+      {
+        "Emp": "Steve Johnson",
+        "Genre": "Latin",
+        "R": 117.81
+      },
+      {
+        "Emp": "Margaret Park",
+        "Genre": "Metal",
+        "R": 96.03
+      },
+      {
+        "Emp": "Steve Johnson",
+        "Genre": "Alternative & Punk",
+        "R": 88.11
+      },
+      {
+        "Emp": "Jane Peacock",
+        "Genre": "Metal",
+        "R": 85.14
+      },
+      {
+        "Emp": "Margaret Park",
+        "Genre": "Alternative & Punk",
+        "R": 83.16
+      },
+      {
+        "Emp": "Steve Johnson",
+        "Genre": "Metal",
+        "R": 80.19
+      },
+      {
+        "Emp": "Jane Peacock",
+        "Genre": "Alternative & Punk",
+        "R": 70.29
+      },
+      {
+        "Emp": "Jane Peacock",
+        "Genre": "TV Shows",
+        "R": 37.81
+      },
+      {
+        "Emp": "Steve Johnson",
+        "Genre": "TV Shows",
+        "R": 35.82
+      },
+      {
+        "Emp": "Jane Peacock",
+        "Genre": "Jazz",
+        "R": 33.66
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L5",
+    "synthetic": true,
+    "id": "gt_224"
+  },
+  {
+    "question": "Which playlists have tracks from more than 3 artists?",
+    "tier": 3,
+    "gold_sql": "SELECT p.Name,COUNT(DISTINCT ar.ArtistId) as C FROM Playlist p JOIN PlaylistTrack pt ON p.PlaylistId=pt.PlaylistId JOIN Track t ON pt.TrackId=t.TrackId JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId GROUP BY p.PlaylistId HAVING C>3 ORDER BY C DESC",
+    "gold_answer": "[{\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"Music\", \"C\": 198}, {\"Name\": \"90’s Music\", \"C\": 109}]",
+    "expected_result": [
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "Music",
+        "C": 198
+      },
+      {
+        "Name": "90’s Music",
+        "C": 109
+      },
+      {
+        "Name": "Classical",
+        "C": 67
+      },
+      {
+        "Name": "Classical 101 - The Basics",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Deep Cuts",
+        "C": 25
+      },
+      {
+        "Name": "Classical 101 - Next Steps",
+        "C": 23
+      },
+      {
+        "Name": "Brazilian Music",
+        "C": 12
+      },
+      {
+        "Name": "Heavy Metal Classic",
+        "C": 9
+      },
+      {
+        "Name": "Grunge",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      },
+      {
+        "Name": "TV Shows",
+        "C": 6
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_225"
+  },
+  {
+    "question": "Which artists have 'Hip Hop/Rap' tracks but no 'Pop' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Hip Hop/Rap') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Pop') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Planet Hemp\"}, {\"Name\": \"House Of Pain\"}]",
+    "expected_result": [
+      {
+        "Name": "Planet Hemp"
+      },
+      {
+        "Name": "House Of Pain"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_226"
+  },
+  {
+    "question": "Which artists have 'Bossa Nova' tracks but no 'World' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Bossa Nova') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='World') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Toquinho & Vinícius\"}]",
+    "expected_result": [
+      {
+        "Name": "Toquinho & Vinícius"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_227"
+  },
+  {
+    "question": "Customers who bought from every genre AC/DC appears in",
+    "tier": 3,
+    "gold_sql": "WITH ag AS (SELECT DISTINCT g.GenreId FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='AC/DC'), cg AS (SELECT c.CustomerId,c.FirstName||' '||c.LastName as Name,g.GenreId FROM Customer c JOIN Invoice i ON c.CustomerId=i.CustomerId JOIN InvoiceLine il ON i.InvoiceId=il.InvoiceId JOIN Track t ON il.TrackId=t.TrackId JOIN Genre g ON t.GenreId=g.GenreId GROUP BY c.CustomerId,g.GenreId) SELECT cg.Name FROM cg JOIN ag ON cg.GenreId=ag.GenreId GROUP BY cg.CustomerId,cg.Name HAVING COUNT(DISTINCT cg.GenreId)=(SELECT COUNT(*) FROM ag) LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Luís Gonçalves\"}, {\"Name\": \"Leonie Köhler\"}, {\"Name\": \"François Tremblay\"}]",
+    "expected_result": [
+      {
+        "Name": "Luís Gonçalves"
+      },
+      {
+        "Name": "Leonie Köhler"
+      },
+      {
+        "Name": "François Tremblay"
+      },
+      {
+        "Name": "Bjørn Hansen"
+      },
+      {
+        "Name": "František Wichterlová"
+      },
+      {
+        "Name": "Helena Holý"
+      },
+      {
+        "Name": "Astrid Gruber"
+      },
+      {
+        "Name": "Daan Peeters"
+      },
+      {
+        "Name": "Kara Nielsen"
+      },
+      {
+        "Name": "Eduardo Martins"
+      },
+      {
+        "Name": "Alexandre Rocha"
+      },
+      {
+        "Name": "Roberto Almeida"
+      },
+      {
+        "Name": "Fernanda Ramos"
+      },
+      {
+        "Name": "Mark Philips"
+      },
+      {
+        "Name": "Jennifer Peterson"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L6",
+    "synthetic": true,
+    "id": "gt_228"
+  },
+  {
+    "question": "Which artists have 'Soundtrack' tracks but no 'Drama' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Soundtrack') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Drama') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Various Artists\"}, {\"Name\": \"Gilberto Gil\"}, {\"Name\": \"Passengers\"}]",
+    "expected_result": [
+      {
+        "Name": "Various Artists"
+      },
+      {
+        "Name": "Gilberto Gil"
+      },
+      {
+        "Name": "Passengers"
+      },
+      {
+        "Name": "Philip Glass Ensemble"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_229"
+  },
+  {
+    "question": "Which tracks cost more than the average for their genre?",
+    "tier": 3,
+    "gold_sql": "SELECT t.Name,t.UnitPrice FROM Track t WHERE t.UnitPrice>(SELECT AVG(t2.UnitPrice) FROM Track t2 WHERE t2.GenreId=t.GenreId) ORDER BY t.UnitPrice DESC LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Desafinado\", \"UnitPrice\": 0.99}, {\"Name\": \"Garota De Ipanema\", \"UnitPrice\": 0.99}, {\"Name\": \"Samba De Uma Nota Só (One Note Samba)\", \"UnitPrice\": 0.99}]",
+    "expected_result": [
+      {
+        "Name": "Desafinado",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Garota De Ipanema",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Samba De Uma Nota Só (One Note Samba)",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Por Causa De Você",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Ligia",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Fotografia",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Dindi (Dindi)",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Se Todos Fossem Iguais A Você (Instrumental)",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Falando De Amor",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Angela",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Corcovado (Quiet Nights Of Quiet Stars)",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Outra Vez",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "O Boto (Bôto)",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Canta, Canta Mais",
+        "UnitPrice": 0.99
+      },
+      {
+        "Name": "Money",
+        "UnitPrice": 0.99
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "NL",
+      "GA",
+      "SI"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_230"
+  },
+  {
+    "question": "Which artists have 'Hip Hop/Rap' tracks but no 'Blues' tracks?",
+    "tier": 3,
+    "gold_sql": "SELECT ar.Name FROM Artist ar WHERE EXISTS (SELECT 1 FROM Track t JOIN Genre g ON t.GenreId=g.GenreId JOIN Album al ON t.AlbumId=al.AlbumId WHERE al.ArtistId=ar.ArtistId AND g.Name='Hip Hop/Rap') AND NOT EXISTS (SELECT 1 FROM Track t2 JOIN Genre g2 ON t2.GenreId=g2.GenreId JOIN Album al2 ON t2.AlbumId=al2.AlbumId WHERE al2.ArtistId=ar.ArtistId AND g2.Name='Blues') LIMIT 15",
+    "gold_answer": "[{\"Name\": \"Planet Hemp\"}, {\"Name\": \"House Of Pain\"}]",
+    "expected_result": [
+      {
+        "Name": "Planet Hemp"
+      },
+      {
+        "Name": "House Of Pain"
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "SI"
+    ],
+    "join_complexity": "L4",
+    "synthetic": true,
+    "id": "gt_231"
+  },
+  {
+    "question": "For each genre, what is the most expensive track?",
+    "tier": 3,
+    "gold_sql": "WITH r AS (SELECT g.Name as Genre,t.Name as Track,t.UnitPrice,ROW_NUMBER() OVER (PARTITION BY g.GenreId ORDER BY t.UnitPrice DESC) as rn FROM Genre g JOIN Track t ON g.GenreId=t.GenreId) SELECT Genre,Track,UnitPrice FROM r WHERE rn=1 ORDER BY UnitPrice DESC",
+    "gold_answer": "[{\"Genre\": \"Science Fiction\", \"Track\": \"Battlestar Galactica: The Story So Far\", \"UnitPrice\": 1.99}, {\"Genre\": \"TV Shows\", \"Track\": \"Occupation / Precipice\", \"UnitPrice\": 1.99}, {\"Genre\": \"Sci Fi & Fantasy\", \"Track\": \"Crossroads, Pt. 1\", \"UnitPrice\": 1.99}]",
+    "expected_result": [
+      {
+        "Genre": "Science Fiction",
+        "Track": "Battlestar Galactica: The Story So Far",
+        "UnitPrice": 1.99
+      },
+      {
+        "Genre": "TV Shows",
+        "Track": "Occupation / Precipice",
+        "UnitPrice": 1.99
+      },
+      {
+        "Genre": "Sci Fi & Fantasy",
+        "Track": "Crossroads, Pt. 1",
+        "UnitPrice": 1.99
+      },
+      {
+        "Genre": "Drama",
+        "Track": "Don't Look Back",
+        "UnitPrice": 1.99
+      },
+      {
+        "Genre": "Comedy",
+        "Track": "The Convict",
+        "UnitPrice": 1.99
+      },
+      {
+        "Genre": "Rock",
+        "Track": "For Those About To Rock (We Salute You)",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Jazz",
+        "Track": "Desafinado",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Metal",
+        "Track": "Enter Sandman",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Alternative & Punk",
+        "Track": "Your Time Has Come",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Rock And Roll",
+        "Track": "Money",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Blues",
+        "Track": "First Time I Met The Blues",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Latin",
+        "Track": "Jorge Da Capadócia",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Reggae",
+        "Track": "Girassol",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Pop",
+        "Track": "Dig-Dig, Lambe-Lambe (Ao Vivo)",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Soundtrack",
+        "Track": "Vai-Vai 2001",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Bossa Nova",
+        "Track": "Samba Da Bênção",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Easy Listening",
+        "Track": "My Way",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Heavy Metal",
+        "Track": "Wildest Dreams",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "R&B/Soul",
+        "Track": "Please Please Please",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Electronica/Dance",
+        "Track": "Just Another Story",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "World",
+        "Track": "Pura Elegancia",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Hip Hop/Rap",
+        "Track": "ZeroVinteUm",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Alternative",
+        "Track": "War Pigs",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Classical",
+        "Track": "Symphony No. 3 in E-flat major, Op. 55, \"Eroica\" - Scherzo: Allegro Vivace",
+        "UnitPrice": 0.99
+      },
+      {
+        "Genre": "Opera",
+        "Track": "Die Zauberflöte, K.620: \"Der Hölle Rache Kocht in Meinem Herze\"",
+        "UnitPrice": 0.99
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "NL",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_232"
+  },
+  {
+    "question": "Revenue per quarter in 2021",
+    "tier": 3,
+    "gold_sql": "SELECT CASE CAST(strftime('%m',InvoiceDate) AS INTEGER) WHEN 1 THEN 'Q1' WHEN 2 THEN 'Q1' WHEN 3 THEN 'Q1' WHEN 4 THEN 'Q2' WHEN 5 THEN 'Q2' WHEN 6 THEN 'Q2' WHEN 7 THEN 'Q3' WHEN 8 THEN 'Q3' WHEN 9 THEN 'Q3' ELSE 'Q4' END as Q,ROUND(SUM(Total),2) as R FROM Invoice WHERE strftime('%Y',InvoiceDate)='2021' GROUP BY Q ORDER BY Q",
+    "gold_answer": "[{\"Q\": \"Q1\", \"R\": 110.88}, {\"Q\": \"Q2\", \"R\": 112.86}, {\"Q\": \"Q3\", \"R\": 112.86}]",
+    "expected_result": [
+      {
+        "Q": "Q1",
+        "R": 110.88
+      },
+      {
+        "Q": "Q2",
+        "R": 112.86
+      },
+      {
+        "Q": "Q3",
+        "R": 112.86
+      },
+      {
+        "Q": "Q4",
+        "R": 112.86
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_233"
+  },
+  {
+    "question": "What was the total revenue in 2022?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE strftime('%Y',InvoiceDate)='2022'",
+    "gold_answer": "[{\"R\": 481.45}]",
+    "expected_result": [
+      {
+        "R": 481.45
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_234"
+  },
+  {
+    "question": "Which month in 2021 had the most invoices?",
+    "tier": 2,
+    "gold_sql": "SELECT strftime('%m',InvoiceDate) as Month, COUNT(*) as C FROM Invoice WHERE strftime('%Y',InvoiceDate)='2021' GROUP BY Month ORDER BY C DESC LIMIT 1",
+    "gold_answer": "[{\"Month\": \"12\", \"C\": 7}]",
+    "expected_result": [
+      {
+        "Month": "12",
+        "C": 7
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA",
+      "NL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_235"
+  },
+  {
+    "question": "What was the total revenue in 2023?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE strftime('%Y',InvoiceDate)='2023'",
+    "gold_answer": "[{\"R\": 469.58}]",
+    "expected_result": [
+      {
+        "R": 469.58
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "DT",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_236"
+  },
+  {
+    "question": "How many customers does each support rep handle?",
+    "tier": 2,
+    "gold_sql": "SELECT e.FirstName||' '||e.LastName as Emp,COUNT(c.CustomerId) as C FROM Employee e LEFT JOIN Customer c ON e.EmployeeId=c.SupportRepId GROUP BY e.EmployeeId ORDER BY C DESC",
+    "gold_answer": "[{\"Emp\": \"Jane Peacock\", \"C\": 21}, {\"Emp\": \"Margaret Park\", \"C\": 20}, {\"Emp\": \"Steve Johnson\", \"C\": 18}]",
+    "expected_result": [
+      {
+        "Emp": "Jane Peacock",
+        "C": 21
+      },
+      {
+        "Emp": "Margaret Park",
+        "C": 20
+      },
+      {
+        "Emp": "Steve Johnson",
+        "C": 18
+      },
+      {
+        "Emp": "Andrew Adams",
+        "C": 0
+      },
+      {
+        "Emp": "Nancy Edwards",
+        "C": 0
+      },
+      {
+        "Emp": "Michael Mitchell",
+        "C": 0
+      },
+      {
+        "Emp": "Robert King",
+        "C": 0
+      },
+      {
+        "Emp": "Laura Callahan",
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA",
+      "HL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_237"
+  },
+  {
+    "question": "How many tracks does 'Hermeto Pascoal' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Hermeto Pascoal'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_238"
+  },
+  {
+    "question": "What is the total revenue generated by 'Alternative & Punk' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Alternative & Punk'",
+    "gold_answer": "[{\"Revenue\": 241.56}]",
+    "expected_result": [
+      {
+        "Revenue": 241.56
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_239"
+  },
+  {
+    "question": "What is the average length of 'World' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='World'",
+    "gold_answer": "[{\"AvgSeconds\": 224.9}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 224.9
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_240"
+  },
+  {
+    "question": "What is the total revenue from customers in 'France'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='France'",
+    "gold_answer": "[{\"R\": 195.1}]",
+    "expected_result": [
+      {
+        "R": 195.1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_241"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Chile'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Chile'",
+    "gold_answer": "[{\"R\": 46.62}]",
+    "expected_result": [
+      {
+        "R": 46.62
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_242"
+  },
+  {
+    "question": "How many customers are located in 'Ireland'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Ireland'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_243"
+  },
+  {
+    "question": "How many albums does 'Led Zeppelin' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Led Zeppelin'",
+    "gold_answer": "[{\"C\": 14}]",
+    "expected_result": [
+      {
+        "C": 14
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_244"
+  },
+  {
+    "question": "How many tracks does 'Frank Zappa & Captain Beefheart' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Frank Zappa & Captain Beefheart'",
+    "gold_answer": "[{\"C\": 9}]",
+    "expected_result": [
+      {
+        "C": 9
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_245"
+  },
+  {
+    "question": "How many albums does 'Metallica' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Metallica'",
+    "gold_answer": "[{\"C\": 10}]",
+    "expected_result": [
+      {
+        "C": 10
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_246"
+  },
+  {
+    "question": "What is the average invoice total in 'France'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='France'",
+    "gold_answer": "[{\"A\": 5.57}]",
+    "expected_result": [
+      {
+        "A": 5.57
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_247"
+  },
+  {
+    "question": "What is the average length of 'TV Shows' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='TV Shows'",
+    "gold_answer": "[{\"AvgSeconds\": 2145.0}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 2145.0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_248"
+  },
+  {
+    "question": "How many customers are located in 'Belgium'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Belgium'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_249"
+  },
+  {
+    "question": "What is the total revenue generated by 'Rock And Roll' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Rock And Roll'",
+    "gold_answer": "[{\"Revenue\": 5.94}]",
+    "expected_result": [
+      {
+        "Revenue": 5.94
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_250"
+  },
+  {
+    "question": "How many tracks does 'Marcos Valle' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Marcos Valle'",
+    "gold_answer": "[{\"C\": 17}]",
+    "expected_result": [
+      {
+        "C": 17
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_251"
+  },
+  {
+    "question": "How many customers are located in 'Argentina'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Argentina'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_252"
+  },
+  {
+    "question": "How many tracks does 'Kiss' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Kiss'",
+    "gold_answer": "[{\"C\": 35}]",
+    "expected_result": [
+      {
+        "C": 35
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_253"
+  },
+  {
+    "question": "How many tracks does 'Spyro Gyra' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Spyro Gyra'",
+    "gold_answer": "[{\"C\": 21}]",
+    "expected_result": [
+      {
+        "C": 21
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_254"
+  },
+  {
+    "question": "How many customers are located in 'Czech Republic'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Czech Republic'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_255"
+  },
+  {
+    "question": "How many albums does 'Deep Purple' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Deep Purple'",
+    "gold_answer": "[{\"C\": 11}]",
+    "expected_result": [
+      {
+        "C": 11
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_256"
+  },
+  {
+    "question": "How many tracks are in the 'Hip Hop/Rap' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Hip Hop/Rap'",
+    "gold_answer": "[{\"TrackCount\": 35}]",
+    "expected_result": [
+      {
+        "TrackCount": 35
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_257"
+  },
+  {
+    "question": "How many customers are located in 'USA'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='USA'",
+    "gold_answer": "[{\"C\": 13}]",
+    "expected_result": [
+      {
+        "C": 13
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_258"
+  },
+  {
+    "question": "How many albums does 'Frank Zappa & Captain Beefheart' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Frank Zappa & Captain Beefheart'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_259"
+  },
+  {
+    "question": "How many tracks does 'Gilberto Gil' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Gilberto Gil'",
+    "gold_answer": "[{\"C\": 32}]",
+    "expected_result": [
+      {
+        "C": 32
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_260"
+  },
+  {
+    "question": "How many tracks does 'Banda Black Rio' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Banda Black Rio'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_261"
+  },
+  {
+    "question": "How many tracks are in the 'Alternative' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Alternative'",
+    "gold_answer": "[{\"TrackCount\": 40}]",
+    "expected_result": [
+      {
+        "TrackCount": 40
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_262"
+  },
+  {
+    "question": "How many albums does 'Azymuth' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Azymuth'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_263"
+  },
+  {
+    "question": "How many tracks are in the 'Drama' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Drama'",
+    "gold_answer": "[{\"TrackCount\": 64}]",
+    "expected_result": [
+      {
+        "TrackCount": 64
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_264"
+  },
+  {
+    "question": "How many albums does 'Cláudio Zoli' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Cláudio Zoli'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_265"
+  },
+  {
+    "question": "What is the total revenue from customers in 'Czech Republic'?",
+    "tier": 1,
+    "gold_sql": "SELECT ROUND(SUM(Total),2) as R FROM Invoice WHERE BillingCountry='Czech Republic'",
+    "gold_answer": "[{\"R\": 90.24}]",
+    "expected_result": [
+      {
+        "R": 90.24
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_266"
+  },
+  {
+    "question": "How many tracks does 'Caetano Veloso' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Caetano Veloso'",
+    "gold_answer": "[{\"C\": 21}]",
+    "expected_result": [
+      {
+        "C": 21
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_267"
+  },
+  {
+    "question": "What is the average invoice total in 'Germany'?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(Total),2) as A FROM Invoice WHERE BillingCountry='Germany'",
+    "gold_answer": "[{\"A\": 5.59}]",
+    "expected_result": [
+      {
+        "A": 5.59
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL",
+      "GA"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_268"
+  },
+  {
+    "question": "How many customers are located in 'Austria'?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Customer WHERE Country='Austria'",
+    "gold_answer": "[{\"C\": 1}]",
+    "expected_result": [
+      {
+        "C": 1
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "FL"
+    ],
+    "join_complexity": "L1",
+    "synthetic": true,
+    "id": "gt_269"
+  },
+  {
+    "question": "How many tracks does 'Jorge Vercilo' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Jorge Vercilo'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_270"
+  },
+  {
+    "question": "How many tracks are in the 'TV Shows' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='TV Shows'",
+    "gold_answer": "[{\"TrackCount\": 93}]",
+    "expected_result": [
+      {
+        "TrackCount": 93
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_271"
+  },
+  {
+    "question": "What is the average length of 'Heavy Metal' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Heavy Metal'",
+    "gold_answer": "[{\"AvgSeconds\": 297.5}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 297.5
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_272"
+  },
+  {
+    "question": "How many albums does 'Os Cariocas' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Os Cariocas'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_273"
+  },
+  {
+    "question": "How many albums does 'Green Day' have?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Album al JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Green Day'",
+    "gold_answer": "[{\"C\": 2}]",
+    "expected_result": [
+      {
+        "C": 2
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_274"
+  },
+  {
+    "question": "How many tracks use the 'Protected AAC audio file' media type?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN MediaType mt ON t.MediaTypeId=mt.MediaTypeId WHERE mt.Name='Protected AAC audio file'",
+    "gold_answer": "[{\"C\": 237}]",
+    "expected_result": [
+      {
+        "C": 237
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_275"
+  },
+  {
+    "question": "What is the total revenue generated by 'Heavy Metal' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Heavy Metal'",
+    "gold_answer": "[{\"Revenue\": 11.88}]",
+    "expected_result": [
+      {
+        "Revenue": 11.88
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_276"
+  },
+  {
+    "question": "What is the total revenue generated by 'Bossa Nova' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Bossa Nova'",
+    "gold_answer": "[{\"Revenue\": 14.85}]",
+    "expected_result": [
+      {
+        "Revenue": 14.85
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_277"
+  },
+  {
+    "question": "What is the total revenue generated by 'Pop' tracks?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(SUM(il.UnitPrice*il.Quantity),2) as Revenue FROM Genre g JOIN Track t ON g.GenreId=t.GenreId JOIN InvoiceLine il ON t.TrackId=il.TrackId WHERE g.Name='Pop'",
+    "gold_answer": "[{\"Revenue\": 27.72}]",
+    "expected_result": [
+      {
+        "Revenue": 27.72
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_278"
+  },
+  {
+    "question": "What is the average length of 'Bossa Nova' tracks in seconds?",
+    "tier": 2,
+    "gold_sql": "SELECT ROUND(AVG(t.Milliseconds)/1000.0,1) as AvgSeconds FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='Bossa Nova'",
+    "gold_answer": "[{\"AvgSeconds\": 219.6}]",
+    "expected_result": [
+      {
+        "AvgSeconds": 219.6
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "GA"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_279"
+  },
+  {
+    "question": "How many tracks are in the 'R&B/Soul' genre?",
+    "tier": 1,
+    "gold_sql": "SELECT COUNT(*) as TrackCount FROM Track t JOIN Genre g ON t.GenreId=g.GenreId WHERE g.Name='R&B/Soul'",
+    "gold_answer": "[{\"TrackCount\": 61}]",
+    "expected_result": [
+      {
+        "TrackCount": 61
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L2",
+    "synthetic": true,
+    "id": "gt_280"
+  },
+  {
+    "question": "How many tracks does 'Chico Buarque' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='Chico Buarque'",
+    "gold_answer": "[{\"C\": 34}]",
+    "expected_result": [
+      {
+        "C": 34
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_281"
+  },
+  {
+    "question": "How many tracks does 'João Gilberto' have?",
+    "tier": 2,
+    "gold_sql": "SELECT COUNT(*) as C FROM Track t JOIN Album al ON t.AlbumId=al.AlbumId JOIN Artist ar ON al.ArtistId=ar.ArtistId WHERE ar.Name='João Gilberto'",
+    "gold_answer": "[{\"C\": 0}]",
+    "expected_result": [
+      {
+        "C": 0
+      }
+    ],
+    "evaluation": "sql_result_match",
+    "failure_modes": [
+      "JN",
+      "FL"
+    ],
+    "join_complexity": "L3",
+    "synthetic": true,
+    "id": "gt_282"
+  }
+]

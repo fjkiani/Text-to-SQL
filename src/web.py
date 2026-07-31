@@ -282,6 +282,16 @@ def create_app(db_path: str = None) -> FastAPI:
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    # Tessera platform API (upload/ask/dashboard/warehouse), tenant-namespaced.
+    # Mounted defensively: if optional deps (duckdb/faiss/boto3) are absent the
+    # core text-to-SQL app still serves, but the Tessera routes return 503.
+    try:
+        from src.tessera_api import router as tessera_router
+        app.include_router(tessera_router)
+        print("Tessera platform API mounted at /tessera")
+    except Exception as _tessera_err:
+        print(f"Tessera platform API unavailable: {_tessera_err}")
+
     # ── Routes ─────────────────────────────────────────────────────────────
 
     @app.get("/health")
