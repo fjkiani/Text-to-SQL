@@ -293,8 +293,35 @@ def zeta_relay(req: RelayReq, authorization: str | None = Header(None)):
 
 @router.get("/health")
 def zeta_health():
-    from src.llm.openrouter import _keys, _models
-    return {"status": "ok", "service": "zeta-clearance-engine",
-            "llm_keys": len(_keys()), "llm_models": len(_models()),
-            "layers": ["L1-ingest", "L1-interrogate", "L2-ubo", "L2-vault",
-                       "L3-attest", "L3-verify", "L4-relay"]}
+    """
+    Liveness + which build and which LLM tiers are actually armed.
+
+    `commit` is here because a Render deploy triggered by an env-var change
+    builds the tree as of that moment, so pushing code and setting env vars in
+    quick succession can put a deploy labelled with the new SHA in front of the
+    old tree. Without a build marker served by the process itself, the only way
+    to tell was to probe for a behaviour change and guess.
+    """
+    import os as _o
+    from src.llm.openrouter import _keys as _or_keys, _models as _or_models
+
+    try:
+        from src.llm.gemini import _keys as _g_keys, _models as _g_models
+        gem = {"keys": len(_g_keys()), "models": len(_g_models())}
+    except Exception:
+        gem = {"keys": 0, "models": 0}
+
+    tiers = ([f"gemini({gem['keys']}k/{gem['models']}m)"] if gem["keys"] else []) + [
+        f"openrouter({len(_or_keys())}k/{len(_or_models())}m)"
+    ]
+    return {
+        "status": "ok",
+        "service": "zeta-clearance-engine",
+        "commit": (_o.environ.get("RENDER_GIT_COMMIT") or "unknown")[:7],
+        "llm_tiers": tiers,
+        "llm_keys": len(_or_keys()),
+        "llm_models": len(_or_models()),
+        "features": ["batched_extraction", "conflict_detection", "deterministic_merge"],
+        "layers": ["L1-ingest", "L1-interrogate", "L2-ubo", "L2-vault",
+                   "L3-attest", "L3-verify", "L4-relay"],
+    }
