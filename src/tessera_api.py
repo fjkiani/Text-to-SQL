@@ -123,6 +123,66 @@ async def warehouse_tables(tenant: str = Depends(resolve_tenant)):
     return {"tenant": tenant, "tables": list_tables(tenant)}
 
 
+@router.get("/embed-health")
+async def embed_health(probe: bool = False):
+    """
+    Which embedding backend is ACTUALLY serving, not which one is configured.
+
+    ARCTIC_EMBED_URL still points at the Modal tessera-arctic-embed endpoint.
+    `modal app list` reports that app "deployed" while the URL returns 404,
+    because the workspace is over its spend limit -- so the configured value
+    tells you nothing. This reports the latched failover state instead, and
+    with ?probe=true actually embeds a token and reports the width it got
+    back. Same lesson as the clearance bit: probe behaviour, not control
+    plane. Unauthenticated on purpose: it exposes no tenant data.
+    """
+    from src.vector import store as vstore
+
+    out = {
+        "configured_arctic_url": vstore._ARCTIC_EMBED_URL or None,
+        "arctic_latched_dead": vstore._remote_dead,
+        "gemini_keys": len(vstore._gemini_keys()),
+        "gemini_latched_dead": vstore._gemini_dead,
+        "gemini_model": vstore._GEMINI_EMBED_MODEL,
+        "gemini_dim": vstore._GEMINI_EMBED_DIM,
+        "local_model": vstore._MODEL_NAME,
+        "active_backend": vstore.embed_backend(),
+        "space": vstore.embed_space(),
+        "embed_calls": vstore._embed_calls,
+        # With zero calls, active_backend is the CONFIGURED tier, not a
+        # measured one -- a dead endpoint looks identical to a healthy one.
+        # Call with ?probe=true to get an observed answer.
+        "active_backend_observed": vstore._embed_calls > 0,
+    }
+    if probe:
+        import time
+        import numpy as np
+        t0 = time.time()
+        try:
+            v = vstore.embed_texts(["clearance"])
+            out["probe"] = {
+                "ok": True, "dim": int(v.shape[1]),
+                "l2_norm": round(float(np.linalg.norm(v[0])), 6),
+                "ms": int((time.time() - t0) * 1000),
+                # embed_texts may fail over mid-call, so re-read afterwards.
+                "served_by": vstore.embed_backend(), "space": vstore.embed_space(),
+            }
+        except Exception as e:
+            out["probe"] = {"ok": False, "error": f"{type(e).__name__}: {e}",
+                            "ms": int((time.time() - t0) * 1000)}
+        # The snapshot above was taken BEFORE the probe, so it would report the
+        # pre-failover tier next to a probe result that contradicts it. Re-read.
+        out.update({
+            "arctic_latched_dead": vstore._remote_dead,
+            "gemini_latched_dead": vstore._gemini_dead,
+            "active_backend": vstore.embed_backend(),
+            "space": vstore.embed_space(),
+            "embed_calls": vstore._embed_calls,
+            "active_backend_observed": vstore._embed_calls > 0,
+        })
+    return out
+
+
 # ── Ask: retrieval and/or text-to-SQL ─────────────────────────────────────────
 
 def _looks_structured(question: str, tenant: str) -> bool:
