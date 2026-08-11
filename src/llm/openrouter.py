@@ -26,13 +26,19 @@ import urllib.request
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Ordered best -> fallback. All verified free-tier on OpenRouter.
+# Ordered fastest-reliable -> slowest fallback. Latencies measured on this task
+# (ownership-edge extraction, 3 keys, warm): nano-30b 8.9s, gpt-oss-20b 28.6s,
+# gemma-4-26b 33.3s, nemotron-120b 112.8s. The 120B is last because a single
+# call at that latency exceeds the Render gateway budget and 502s the request.
+# nemotron-nano is DEMOTED despite being fastest (8.9s): it is a reasoning model
+# and on the long extraction prompt it spends its whole token budget on
+# chain-of-thought, returning truncated prose with no JSON array at all.
 DEFAULT_MODELS = [
-    "nvidia/nemotron-3-super-120b-a12b:free",
-    "google/gemma-4-31b-it:free",
-    "google/gemma-4-26b-a4b-it:free",
     "openai/gpt-oss-20b:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "google/gemma-4-31b-it:free",
     "nvidia/nemotron-3-nano-30b-a3b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
     "openrouter/free",
 ]
 
@@ -99,7 +105,7 @@ def chat_openrouter(messages: list[dict], **kw) -> dict:
             )
             ki = keys.index(key) + 1
             try:
-                with urllib.request.urlopen(req, timeout=kw.get("timeout", 120)) as r:
+                with urllib.request.urlopen(req, timeout=kw.get("timeout", float(os.environ.get("OPENROUTER_TIMEOUT_S", "45")))) as r:
                     out = json.loads(r.read())
                 text = (out.get("choices") or [{}])[0].get("message", {}).get("content", "")
                 if not text.strip():

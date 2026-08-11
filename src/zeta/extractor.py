@@ -55,11 +55,57 @@ def _canon_unused(s: str) -> str:
 
 
 def _extract_json_array(text: str) -> list:
-    """Pull the first JSON array out of the model output, tolerating fences."""
-    m = re.search(r"\[.*\]", text, re.DOTALL)
-    if not m:
-        raise ValueError(f"no JSON array in model output: {text[:200]}")
-    return json.loads(m.group(0))
+    """
+    Pull the ownership-edge JSON array out of model output.
+
+    A greedy r"\[.*\]" is wrong here and caused a real production failure:
+    reasoning models emit chain-of-thought containing bracketed tokens such as
+    "[chunk c1 | page 1]", so the greedy span started inside prose and the parse
+    died at char 1. This scanner instead walks the text, tracks bracket depth
+    while respecting string literals and escapes, and returns the first BALANCED
+    array that both parses and looks like edge records.
+    """
+    # Reasoning models wrap their scratchpad; drop it before scanning.
+    cleaned = re.sub(r"<think>.*?</think>", " ", text, flags=re.DOTALL | re.IGNORECASE)
+    cleaned = re.sub(r"```(?:json)?", " ", cleaned)
+
+    candidates: list[list] = []
+    for start in (i for i, ch in enumerate(cleaned) if ch == "["):
+        depth, in_str, esc = 0, False, False
+        for j in range(start, len(cleaned)):
+            c = cleaned[j]
+            if esc:
+                esc = False
+                continue
+            if c == "\\":
+                esc = True
+                continue
+            if c == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if c == "[":
+                depth += 1
+            elif c == "]":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        parsed = json.loads(cleaned[start:j + 1])
+                    except json.JSONDecodeError:
+                        break
+                    if isinstance(parsed, list):
+                        candidates.append(parsed)
+                    break
+        if candidates and candidates[-1] and isinstance(candidates[-1][0], dict) \
+                and "owner_id" in candidates[-1][0]:
+            return candidates[-1]  # first well-formed EDGE array wins
+    for c in candidates:  # fall back to any parsed array (possibly empty)
+        if all(isinstance(x, dict) for x in c):
+            return c
+    raise ValueError(
+        f"no balanced edge JSON array in model output (len={len(text)}): {text[:300]}"
+    )
 
 
 def _validate_edge(e: dict, source_hash: str) -> dict:
