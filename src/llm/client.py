@@ -61,19 +61,30 @@ def chat(messages: list[dict], **kw) -> dict:
     Send a chat completion. Returns {"text": str, "backend": "arctic"|"fireworks"}.
     Tries Arctic first (if configured), falls back to Fireworks on any failure.
     """
-    arctic_err = None
+    errors = {}
     if ARCTIC_LLM_URL:
         try:
-            text = _chat_arctic(messages, **kw)
-            return {"text": text, "backend": "arctic"}
+            return {"text": _chat_arctic(messages, **kw), "backend": "arctic"}
         except Exception as e:
-            arctic_err = str(e)
-            print(f"[llm.client] Arctic backend failed ({arctic_err[:120]}); falling back to Fireworks")
+            errors["arctic"] = str(e)[:160]
+            print(f"[llm.client] Arctic failed ({errors['arctic']}); trying OpenRouter")
+
+    # OpenRouter: rotating keys + free-model failover. Primary resilient path.
+    try:
+        from openrouter import chat_openrouter
+    except ImportError:
+        from .openrouter import chat_openrouter
+    try:
+        out = chat_openrouter(messages, **kw)
+        if errors:
+            out["upstream_errors"] = errors
+        return out
+    except Exception as e:
+        errors["openrouter"] = str(e)[:300]
+        print(f"[llm.client] OpenRouter exhausted ({errors['openrouter'][:120]}); trying Fireworks")
+
     text = _chat_fireworks(messages, **kw)
-    result = {"text": text, "backend": "fireworks"}
-    if arctic_err:
-        result["arctic_error"] = arctic_err
-    return result
+    return {"text": text, "backend": "fireworks", "upstream_errors": errors}
 
 
 if __name__ == "__main__":

@@ -292,6 +292,13 @@ def create_app(db_path: str = None) -> FastAPI:
     except Exception as _tessera_err:
         print(f"Tessera platform API unavailable: {_tessera_err}")
 
+    try:
+        from src.zeta_api import router as zeta_router
+        app.include_router(zeta_router)
+        print("Zeta Clearance engine mounted at /zeta")
+    except Exception as _zeta_err:
+        print(f"Zeta Clearance engine unavailable: {_zeta_err}")
+
     # ── Routes ─────────────────────────────────────────────────────────────
 
     @app.get("/health")
