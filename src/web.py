@@ -295,7 +295,9 @@ def create_app(db_path: str = None) -> FastAPI:
     try:
         from src.zeta_api import router as zeta_router
         app.include_router(zeta_router)
-        print("Zeta Clearance engine mounted at /zeta")
+        from src.zeta_console import console_router
+        app.include_router(console_router)
+        print("Zeta Clearance engine mounted at /zeta (console at /zeta/console)")
     except Exception as _zeta_err:
         print(f"Zeta Clearance engine unavailable: {_zeta_err}")
 
