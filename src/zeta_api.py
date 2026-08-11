@@ -102,6 +102,29 @@ class RelayReq(BaseModel):
     relying_party: str
 
 
+class RevokeReq(BaseModel):
+    """
+    Revocation is an ISSUER action on the Canton ledger, not a relying-party
+    action -- `CantonLedger.revoke` rejects anyone who is not `contract.issuer`.
+    The old model reused VerifyReq and passed `relying_party` straight into
+    `by_party`, so every call from an actual relying party raised an uncaught
+    PermissionError and returned HTTP 500. `relying_party` is kept as a
+    deprecated alias so existing callers do not break.
+    """
+    contract_id: str
+    by_party: str | None = None
+    relying_party: str | None = None
+
+    def party(self) -> str:
+        # /attest hardcodes issuer="zeta_issuer", so that is the only party
+        # that can ever revoke what this service issued.
+        return self.by_party or self.relying_party or "zeta_issuer"
+
+
+class ClearedReq(BaseModel):
+    entity_key: str
+
+
 # ----------------------------- L1 -----------------------------
 def _light_chunks(name: str, data: bytes) -> list[dict]:
     text = data.decode("utf-8", errors="replace")
@@ -260,11 +283,69 @@ def zeta_verify(req: VerifyReq, authorization: str | None = Header(None)):
         return {"verified": False, "reason": str(e)}
 
 
+def _entity_key(contract_id: str) -> str | None:
+    """bytes32 oracle key for a contract, or None if the contract is unreadable."""
+    from src.zeta.relayer import _to_bytes32
+    try:
+        return _to_bytes32(_ledger().get(contract_id)["payload"]["legalEntityHash"])
+    except Exception:
+        return None
+
+
+def _tear_down_clearance(contract_id: str) -> dict:
+    """
+    Drop the on-chain clearance bit for a contract's entity.
+
+    This is the half of revocation that was missing. `/revoke` used to touch
+    only the Canton ledger, so `verify` and `relay` correctly started refusing
+    while the EVM oracle entry posted by an earlier `/relay` stayed
+    `revoked=False` -- `isCleared` remained true and a PermissionedPool gating
+    on that bit would still have accepted a deposit from a revoked entity.
+    Confirmed live before this fix: entity_key 0xdfb35610... stayed cleared
+    after the ledger reported "attestation revoked".
+    """
+    key = _entity_key(contract_id)
+    if not key:
+        return {"entity_key": None, "oracle_revoked": False, "is_cleared": False}
+    orc = _oracle()
+    if key in orc.attestations:
+        orc.revoke(key, by=orc.relayer)
+        return {"entity_key": key, "oracle_revoked": True,
+                "is_cleared": orc.is_cleared(key)}
+    # Never relayed, so there is nothing on chain to tear down.
+    return {"entity_key": key, "oracle_revoked": False, "is_cleared": False}
+
+
 @router.post("/revoke")
-def zeta_revoke(req: VerifyReq, authorization: str | None = Header(None)):
+def zeta_revoke(req: RevokeReq, authorization: str | None = Header(None)):
     _auth(authorization)
-    _ledger().revoke(req.contract_id, by_party=req.relying_party)
-    return {"revoked": True, "contract_id": req.contract_id}
+    # Read the entity key BEFORE revoking: it is derived from the contract
+    # payload, which must still be readable.
+    try:
+        _ledger().revoke(req.contract_id, by_party=req.party())
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"unknown contract {req.contract_id}")
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    return {"revoked": True, "contract_id": req.contract_id,
+            **_tear_down_clearance(req.contract_id)}
+
+
+@router.post("/cleared")
+def zeta_cleared(req: ClearedReq, authorization: str | None = Header(None)):
+    """
+    Read the oracle clearance bit for an entity key. This is the only thing a
+    permissioned pool needs at deposit time, and it was previously readable
+    only as a side-effect of POST /relay -- which refuses once the attestation
+    is revoked, so there was no way to observe the stale-clearance bug from
+    outside the process.
+    """
+    _auth(authorization)
+    orc = _oracle()
+    a = orc.attestations.get(req.entity_key)
+    return {"entity_key": req.entity_key, "known": a is not None,
+            "is_cleared": orc.is_cleared(req.entity_key),
+            "revoked": bool(a and a["revoked"])}
 
 
 # ----------------------------- L4 -----------------------------
@@ -288,7 +369,16 @@ def zeta_relay(req: RelayReq, authorization: str | None = Header(None)):
         return {"relayed": True, "entity_key": key,
                 "is_cleared": _oracle().is_cleared(key)}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # A relay attempt that the ledger refuses because the attestation is
+        # revoked or expired is also the last chance to notice that a stale
+        # clearance bit is still standing on chain. Tear it down rather than
+        # only returning 400.
+        detail = str(e)
+        torn = {}
+        if "revoked" in detail or "expired" in detail:
+            torn = _tear_down_clearance(req.contract_id)
+        raise HTTPException(status_code=400, detail=detail, headers=(
+            {"X-Zeta-Clearance-Torn-Down": "1"} if torn.get("oracle_revoked") else None))
 
 
 @router.get("/health")

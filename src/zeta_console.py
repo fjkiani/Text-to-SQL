@@ -261,11 +261,16 @@ async function relay(){
 }
 async function revoke(){
   try{if(!S.contract){show('o5','Attest first.');return}
-    await api('/revoke',{contract_id:S.contract,relying_party:'zeta_issuer'});
+    const v=await api('/revoke',{contract_id:S.contract,by_party:'zeta_issuer'});
     const r=await api('/verify',{contract_id:S.contract,relying_party:'aave_arc'});
+    // Read the on-chain bit back independently instead of trusting the revoke
+    // response: the pool gates on the oracle, not on the ledger.
+    const c=v.entity_key?await api('/cleared',{entity_key:v.entity_key}):{is_cleared:null};
     $('o5').innerHTML=`<span class="pill no">revoked</span><span class="pill ${r.verified?'ok':'no'}">
-      relying party now: ${r.verified?'CLEARED':'DENIED'}</span>`;
-    mark(5,'pending');log('L3 revoked · downstream verify='+r.verified);
+      relying party now: ${r.verified?'CLEARED':'DENIED'}</span>`+
+      `<span class="pill ${c.is_cleared?'ok':'no'}">on-chain: ${c.is_cleared?'STILL ALLOWLISTED':'BLOCKED'}</span>`;
+    mark(5,'pending');
+    log('L3 revoked · downstream verify='+r.verified+' · oracle bit torn down='+(v.oracle_revoked===true)+' · isCleared='+c.is_cleared);
   }catch(e){show('o5','ERROR '+e.message)}
 }
 flow();
