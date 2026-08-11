@@ -5,6 +5,12 @@ _MODEL_NAME = "Snowflake/snowflake-arctic-embed-m"
 _model = None
 _model_lock = threading.Lock()
 
+# Remote-first embedding: when ARCTIC_EMBED_URL is set (the live Modal
+# tessera-arctic-embed endpoint, 1024-dim l-v2.0), embed over HTTP so the web
+# dyno never needs torch/sentence-transformers installed. Falls back to the
+# local CPU model only when no remote endpoint is configured.
+_ARCTIC_EMBED_URL = os.environ.get("ARCTIC_EMBED_URL", "").strip()
+
 def _get_model():
     global _model
     with _model_lock:
@@ -13,7 +19,19 @@ def _get_model():
             _model = SentenceTransformer(_MODEL_NAME)
     return _model
 
+def _embed_remote(texts):
+    import urllib.request
+    payload = json.dumps({"texts": texts}).encode()
+    req = urllib.request.Request(
+        _ARCTIC_EMBED_URL, data=payload,
+        headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=120) as r:
+        out = json.loads(r.read())
+    return np.asarray(out["embeddings"], dtype="float32")
+
 def embed_texts(texts):
+    if _ARCTIC_EMBED_URL:
+        return _embed_remote(texts)
     m = _get_model()
     return m.encode(texts, normalize_embeddings=True, convert_to_numpy=True).astype("float32")
 
