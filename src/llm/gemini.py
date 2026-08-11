@@ -104,10 +104,16 @@ def _extract_text(out: dict) -> str:
         fb = (out.get("promptFeedback") or {}).get("blockReason")
         raise RuntimeError(f"no candidates (blockReason={fb})")
     cand = cands[0]
+    finish = cand.get("finishReason")
     parts = (cand.get("content") or {}).get("parts") or []
     text = "".join(p.get("text", "") for p in parts)
     if not text.strip():
-        raise RuntimeError(f"empty candidate (finishReason={cand.get('finishReason')})")
+        raise RuntimeError(f"empty candidate (finishReason={finish})")
+    if finish == "MAX_TOKENS":
+        # A truncated response is the dangerous case: the text looks like a
+        # valid answer that simply stops early, so an ownership list can lose
+        # its last owners without any error. Refuse it and fail over.
+        raise RuntimeError(f"truncated at MAX_TOKENS ({len(text)} chars) — refusing partial output")
     return text
 
 
@@ -125,13 +131,21 @@ def chat_gemini(messages: list[dict], **kw) -> dict:
     timeout = float(os.environ.get("GEMINI_TIMEOUT_S", "45"))
     contents, system = _to_gemini(messages)
 
-    body: dict = {
-        "contents": contents,
-        "generationConfig": {
-            "temperature": kw.get("temperature", 0.0),
-            "maxOutputTokens": kw.get("max_tokens", 1024),
-        },
+    gen: dict = {
+        "temperature": kw.get("temperature", 0.0),
+        "maxOutputTokens": kw.get("max_tokens", 1024),
     }
+    # Gemini 2.5+ counts THINKING tokens against maxOutputTokens. Measured on
+    # the ownership-extraction prompt: 1034 thought tokens against a 1500 budget
+    # left 462 for the answer, so the JSON array was cut off mid-object and the
+    # extraction 502'd. Structured extraction from a document is not a reasoning
+    # task, so thinking is disabled by default — same 5/5 edges, complete array,
+    # and 1178 total tokens instead of 1955. Set GEMINI_THINKING_BUDGET to
+    # re-enable (-1 = model default) for genuinely reasoning-heavy prompts.
+    budget = int(os.environ.get("GEMINI_THINKING_BUDGET", "0"))
+    if budget >= 0:
+        gen["thinkingConfig"] = {"thinkingBudget": budget}
+    body: dict = {"contents": contents, "generationConfig": gen}
     if system:
         body["systemInstruction"] = {"parts": [{"text": system}]}
 
