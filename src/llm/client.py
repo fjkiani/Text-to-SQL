@@ -67,9 +67,25 @@ def chat(messages: list[dict], **kw) -> dict:
             return {"text": _chat_arctic(messages, **kw), "backend": "arctic"}
         except Exception as e:
             errors["arctic"] = str(e)[:160]
-            print(f"[llm.client] Arctic failed ({errors['arctic']}); trying OpenRouter")
+            print(f"[llm.client] Arctic failed ({errors['arctic']}); trying Gemini")
 
-    # OpenRouter: rotating keys + free-model failover. Primary resilient path.
+    # Gemini: primary. Fast (Flash-class), deterministic at temperature 0, and
+    # not subject to the OpenRouter free-tier's churning inventory / 429 storms.
+    if os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY"):
+        try:
+            from gemini import chat_gemini
+        except ImportError:
+            from .gemini import chat_gemini
+        try:
+            out = chat_gemini(messages, **kw)
+            if errors:
+                out["upstream_errors"] = errors
+            return out
+        except Exception as e:
+            errors["gemini"] = str(e)[:300]
+            print(f"[llm.client] Gemini failed ({errors['gemini'][:120]}); trying OpenRouter")
+
+    # OpenRouter: rotating keys + free-model failover. Second resilient tier.
     try:
         from openrouter import chat_openrouter
     except ImportError:

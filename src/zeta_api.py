@@ -62,6 +62,11 @@ class UboReq(BaseModel):
     entity_id: str
     edges: list[dict]
     threshold_pct: float = 25.0
+    # Conflicting direct percentages found during extraction (same owner/owned
+    # pair reported with different values on different pages). Passed through
+    # from /extract_edges so the determination carries the contradiction
+    # instead of quietly resolving it.
+    conflicts: list[dict] = []
 
 
 class InterrogateReq(BaseModel):
@@ -168,7 +173,18 @@ def zeta_interrogate(req: InterrogateReq, authorization: str | None = Header(Non
 @router.post("/ubo")
 def zeta_ubo(req: UboReq, authorization: str | None = Header(None)):
     _auth(authorization)
-    return determine_ubos(req.edges, req.entity_id, threshold_pct=req.threshold_pct)
+    out = determine_ubos(req.edges, req.entity_id, threshold_pct=req.threshold_pct)
+    if req.conflicts:
+        # The source documents contradict each other about a direct holding.
+        # The graph computed a number from ONE of those readings; a human has to
+        # decide which register governs before this can be attested. Never let a
+        # contradicted cap table auto-clear.
+        out.setdefault("flags", [])
+        if "conflicting_ownership_records" not in out["flags"]:
+            out["flags"].append("conflicting_ownership_records")
+        out["review_required"] = True
+        out["conflicts"] = req.conflicts
+    return out
 
 
 @router.post("/vault/store")

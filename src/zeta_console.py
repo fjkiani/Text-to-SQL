@@ -175,20 +175,29 @@ async function runL1(){
     show('o1','parsed '+ing.chunk_count+' chunk(s) ('+ing.parse_mode+')\nextracting ownership edges via LLM...');
     const t0=Date.now();
     const ed=await api('/extract_edges',{chunks:ing.chunks});
-    S.edges=ed.edges;mark(1,'done');
+    S.edges=ed.edges;S.conflicts=ed.conflicts||[];mark(1,'done');
     const secs=((Date.now()-t0)/1000).toFixed(0);
     let h='<table><tr><th>Owner</th><th>Owns</th><th>%</th><th>Type</th><th>Pg</th></tr>';
     ed.edges.forEach(e=>h+=`<tr><td>${e.owner_id}</td><td>${e.owned_entity_id}</td>
       <td>${e.direct_pct}</td><td>${e.owner_type}</td><td>${e.page}</td></tr>`);
-    show('o1','');$('o1').innerHTML=h+'</table>'+
-      `<div class="hint">${ed.edges.length} edges · ${ed.backend} · ${secs}s</div>`;
-    log('L1 extracted '+ed.edges.length+' edges in '+secs+'s');
+    let cw='';
+    if(S.conflicts.length){
+      cw='<div class="hint" style="color:#FF9400"><b>'+S.conflicts.length+
+         ' conflicting record(s)</b> — the documents disagree; both readings kept, largest retained, review forced:</div>'+
+         S.conflicts.map(c=>`<div class="hint">${c.owner_id} → ${c.owned_entity_id}: `+
+           `${c.values.join('% vs ')}% (pages ${c.pages.join(', ')})</div>`).join('');
+    }
+    show('o1','');$('o1').innerHTML=h+'</table>'+cw+
+      `<div class="hint">${ed.edges.length} edges · ${ed.backend}${ed.model?' / '+ed.model:''}`+
+      ` · ${ed.batches||1} batch(es) · ${secs}s</div>`;
+    log('L1 extracted '+ed.edges.length+' edges in '+secs+'s'+
+        (S.conflicts.length?(' ('+S.conflicts.length+' CONFLICT)'):''));
     runUbo();
   }catch(e){show('o1','ERROR '+e.message);log('L1 failed: '+e.message);mark(1,'pending')}
 }
 async function runUbo(){
   try{mark(2,'run');
-    const u=await api('/ubo',{entity_id:$('ent').value,edges:S.edges,threshold_pct:parseFloat($('thr').value)});
+    const u=await api('/ubo',{entity_id:$('ent').value,edges:S.edges,threshold_pct:parseFloat($('thr').value),conflicts:S.conflicts||[]});
     S.ubo=u;mark(2,'done');
     let p=u.ubos.length?u.ubos.map(x=>`<span class="pill ubo">${x.person_id} ${x.aggregate_pct}%</span>`).join('')
                        :'<span class="pill muted">no UBO at this threshold</span>';
@@ -201,7 +210,7 @@ async function runUbo(){
 async function sweep(){
   try{show('o2','sweeping thresholds...');const rows=[];
     for(const t of [10,20,25,30,50]){
-      const u=await api('/ubo',{entity_id:$('ent').value,edges:S.edges,threshold_pct:t});
+      const u=await api('/ubo',{entity_id:$('ent').value,edges:S.edges,threshold_pct:t,conflicts:S.conflicts||[]});
       rows.push(t+'% -> '+(u.ubos.map(x=>x.person_id+' '+x.aggregate_pct+'%').join(', ')||'none'));
     }
     show('o2',rows.join('\n'));log('L2 threshold sweep complete');

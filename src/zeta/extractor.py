@@ -128,11 +128,114 @@ def _validate_edge(e: dict, source_hash: str) -> dict:
     }
 
 
-def extract_edges(chunks: list[dict], source_text: str | None = None) -> dict:
+def _render(c: dict) -> str:
+    pages = c.get("metadata", {}).get("pages") or [1]
+    return f"[page {pages[0]}] {c.get('text','')}"
+
+
+def _batch(chunks: list[dict], budget: int) -> list[list[dict]]:
+    """
+    Group chunks into prompt-sized batches.
+
+    One request per chunk is wasteful when a data room is 400 small chunks, and
+    one request for everything blows the context window and the gateway timeout.
+    Batch by rendered character budget: bounded prompt size, bounded request
+    count. A single chunk larger than the budget still gets its own batch rather
+    than being dropped.
+    """
+    batches: list[list[dict]] = []
+    cur: list[dict] = []
+    cur_len = 0
+    for c in chunks:
+        n = len(_render(c))
+        if cur and cur_len + n > budget:
+            batches.append(cur)
+            cur, cur_len = [], 0
+        cur.append(c)
+        cur_len += n
+    if cur:
+        batches.append(cur)
+    return batches
+
+
+def _merge_edges(batched: list[list[dict]]) -> tuple[list[dict], list[dict]]:
+    """
+    Merge per-batch edge lists, keyed on (owner_id, owned_entity_id).
+
+    Two batches can report the same relationship with DIFFERENT percentages —
+    e.g. a stale cap table on page 2 and an amended one on page 9. Averaging
+    them manufactures a number that appears in no document and can move a
+    beneficiary across the 25% control threshold. So both observations are kept
+    in an explicit conflict record and one is selected by a fixed rule.
+
+    SELECTION RULE (deterministic, and it must be):
+      1. higher confidence wins;
+      2. on equal confidence, the LARGER direct_pct wins.
+
+    Rule 2 is not cosmetic. An earlier version fell through to first-seen, and
+    because batches complete concurrently the winner depended on which HTTP
+    response landed first: the same documents yielded john_smith at 24.0% or
+    16.0% of the top entity across runs. A clearance decision that changes with
+    network timing is not auditable. Taking the maximum is also the fail-safe
+    direction for KYB — when the record contradicts itself, over-report the
+    stake so the graph escalates a possible controller rather than clearing
+    them — and every conflict is emitted for human adjudication regardless.
+    """
+    best: dict[tuple[str, str], dict] = {}
+    conflicts: dict[tuple[str, str], dict] = {}
+    for edges in batched:
+        for e in edges:
+            k = (e["owner_id"], e["owned_entity_id"])
+            prev = best.get(k)
+            if prev is None:
+                best[k] = e
+                continue
+            if abs(prev["direct_pct"] - e["direct_pct"]) > 1e-9:
+                rec = conflicts.setdefault(
+                    k,
+                    {
+                        "owner_id": e["owner_id"],
+                        "owned_entity_id": e["owned_entity_id"],
+                        "values": [],
+                        "pages": [],
+                    },
+                )
+                for src in (prev, e):
+                    if src["direct_pct"] not in rec["values"]:
+                        rec["values"].append(src["direct_pct"])
+                    if src["page"] not in rec["pages"]:
+                        rec["pages"].append(src["page"])
+            # Strict, total ordering -> independent of arrival order.
+            if (e["confidence"], e["direct_pct"]) > (prev["confidence"], prev["direct_pct"]):
+                best[k] = e
+    for rec in conflicts.values():
+        rec["values"].sort()
+        rec["pages"].sort()
+    ordered = sorted(conflicts.values(), key=lambda r: (r["owned_entity_id"], r["owner_id"]))
+    return list(best.values()), ordered
+
+
+def _extract_one(batch: list[dict], source_hash: str) -> tuple[list[dict], dict]:
+    prompt = EXTRACTION_PROMPT.format(chunks="\n".join(_render(c) for c in batch))
+    out = chat([{"role": "user", "content": prompt}], max_tokens=1500)
+    raw = _extract_json_array(out["text"])
+    return [_validate_edge(e, source_hash) for e in raw], out
+
+
+def extract_edges(
+    chunks: list[dict],
+    source_text: str | None = None,
+    batch_chars: int | None = None,
+    max_workers: int | None = None,
+) -> dict:
     """Extract candidate ownership edges from parsed chunks.
 
     chunks: [{chunk_id, text, source, metadata{pages,...}}] from Tessera ingest.
-    Returns {"edges": [...], "source_hash", "low_confidence": [owner_id,...], "backend"}.
+    Large inputs are split into prompt-sized batches and extracted concurrently,
+    so wall time scales with the largest batch rather than the whole data room.
+
+    Returns {"edges", "source_hash", "low_confidence", "backend", "model",
+             "batches", "conflicts"}.
     """
     if not chunks:
         raise ValueError("no chunks to extract from")
@@ -141,23 +244,55 @@ def extract_edges(chunks: list[dict], source_text: str | None = None) -> dict:
         source_text = "\n".join(c.get("text", "") for c in chunks)
     source_hash = hashlib.sha256(source_text.encode()).hexdigest()
 
-    # Render chunks with page markers so the model can cite pages.
-    rendered = []
-    for c in chunks:
-        pages = c.get("metadata", {}).get("pages") or [1]
-        rendered.append(f"[page {pages[0]}] {c.get('text','')}")
-    prompt = EXTRACTION_PROMPT.format(chunks="\n".join(rendered))
+    budget = int(batch_chars or os.environ.get("ZETA_EXTRACT_BATCH_CHARS", "12000"))
+    workers = int(max_workers or os.environ.get("ZETA_EXTRACT_WORKERS", "4"))
+    batches = _batch(chunks, budget)
 
-    out = chat([{"role": "user", "content": prompt}], max_tokens=1500)
-    raw = _extract_json_array(out["text"])
-    edges = [_validate_edge(e, source_hash) for e in raw]
+    results: list[list[dict]] = []
+    meta: dict = {}
+    errors: list[str] = []
+
+    if len(batches) == 1:
+        edges, out = _extract_one(batches[0], source_hash)
+        results.append(edges)
+        meta = out
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=min(workers, len(batches))) as pool:
+            futs = [pool.submit(_extract_one, b, source_hash) for b in batches]
+            # Collect in BATCH ORDER, not completion order. as_completed() would
+            # make the merge input sequence depend on network timing; combined
+            # with any order-sensitive tie-break that yields different clearance
+            # results for identical documents.
+            for i, f in enumerate(futs):
+                try:
+                    edges, out = f.result()
+                except Exception as exc:  # one bad batch must not void the run
+                    errors.append(f"batch{i}:{type(exc).__name__}:{str(exc)[:120]}")
+                    continue
+                results.append(edges)
+                meta = meta or out
+        # A silently-dropped batch is a silently-dropped owner, which is a false
+        # clear. Fail loudly if nothing survived; report partials otherwise.
+        if not results:
+            raise RuntimeError(f"all {len(batches)} extraction batches failed: {errors}")
+
+    edges, conflicts = _merge_edges(results)
+    edges.sort(key=lambda e: (e["owned_entity_id"], -e["direct_pct"], e["owner_id"]))
     low_conf = [e["owner_id"] for e in edges if e["confidence"] < 0.7]
-    return {
+    result = {
         "edges": edges,
         "source_hash": source_hash,
         "low_confidence": low_conf,
-        "backend": out.get("backend"),
+        "backend": meta.get("backend"),
+        "model": meta.get("model"),
+        "batches": len(batches),
+        "conflicts": conflicts,
     }
+    if errors:
+        result["failed_batches"] = errors
+    return result
 
 
 if __name__ == "__main__":
